@@ -141,6 +141,20 @@ const authSection = document.getElementById("auth-section");
     return `https://api.dicebear.com/9.x/rings/svg?size=32&seed=${encodeURIComponent(seed)}`;
     }
 
+    function getGifUrl(text) {
+    if (!text) return "";
+    const trimmed = text.trim();
+    if (!trimmed) return "";
+    try {
+        const url = new URL(trimmed);
+        if (url.protocol !== "http:" && url.protocol !== "https:") return "";
+        if (!url.pathname.toLowerCase().endsWith(".gif")) return "";
+        return url.toString();
+    } catch (err) {
+        return "";
+    }
+    }
+
     function base64ToArrayBuffer(base64) {
     const binaryString = atob(base64);
     const len = binaryString.length;
@@ -539,7 +553,17 @@ const authSection = document.getElementById("auth-section");
 
         const messageDiv = document.createElement("div");
         messageDiv.className = "message";
+        const gifUrl = getGifUrl(item.text);
+        if (gifUrl) {
+        const imgEl = document.createElement("img");
+        imgEl.className = "chat-image";
+        imgEl.loading = "lazy";
+        imgEl.src = gifUrl;
+        imgEl.alt = "GIF";
+        messageDiv.appendChild(imgEl);
+        } else {
         messageDiv.textContent = item.text;
+        }
 
         line.appendChild(userZone);
         line.appendChild(messageDiv);
