@@ -1,6 +1,8 @@
 const express = require("express");
 const bcrypt = require("bcryptjs");
 
+const MAX_AVATAR_BYTES = 200 * 1024;
+
 function createAuthRouter({ db, dbGet, dbRun, getUserFromCookie }) {
   const router = express.Router();
 
@@ -24,9 +26,11 @@ function createAuthRouter({ db, dbGet, dbRun, getUserFromCookie }) {
     }
     const hash = bcrypt.hashSync(password, 10);
     try {
-      dbRun(db, "INSERT INTO users (username, password_hash) VALUES (?, ?)", [
+      dbRun(db, "INSERT INTO users (username, password_hash, avatar_mime, avatar_data) VALUES (?, ?, ?, ?)", [
         username.trim(),
-        hash
+        hash,
+        "",
+        ""
       ]);
 
       const created = dbGet(db, "SELECT id, username FROM users WHERE username = ?", [
@@ -94,9 +98,11 @@ function createAuthRouter({ db, dbGet, dbRun, getUserFromCookie }) {
 
     const hash = bcrypt.hashSync(password, 10);
     try {
-      dbRun(db, "INSERT INTO users (username, password_hash) VALUES (?, ?)", [
+      dbRun(db, "INSERT INTO users (username, password_hash, avatar_mime, avatar_data) VALUES (?, ?, ?, ?)", [
         username.trim(),
-        hash
+        hash,
+        "",
+        ""
       ]);
       const created = dbGet(db, "SELECT id, username FROM users WHERE username = ?", [
         username.trim()
@@ -114,6 +120,39 @@ function createAuthRouter({ db, dbGet, dbRun, getUserFromCookie }) {
     } catch (err) {
       return res.status(409).json({ error: "Username already taken" });
     }
+  });
+
+  router.post("/avatar", (req, res) => {
+    const user = getUserFromCookie(db, req);
+    if (!user) return res.status(401).json({ error: "Login required" });
+
+    const { mime, data } = req.body || {};
+    if (!mime || typeof mime !== "string" || !data || typeof data !== "string") {
+      return res.status(400).json({ error: "mime and data required" });
+    }
+    if (!mime.startsWith("image/")) {
+      return res.status(400).json({ error: "Only image uploads allowed" });
+    }
+
+    let buffer;
+    try {
+      buffer = Buffer.from(data, "base64");
+    } catch (err) {
+      return res.status(400).json({ error: "Invalid image data" });
+    }
+    if (!buffer || buffer.length === 0) {
+      return res.status(400).json({ error: "Invalid image data" });
+    }
+    if (buffer.length > MAX_AVATAR_BYTES) {
+      return res.status(400).json({ error: "Avatar too large" });
+    }
+
+    dbRun(db, "UPDATE users SET avatar_mime = ?, avatar_data = ? WHERE id = ?", [
+      mime,
+      data,
+      user.id
+    ]);
+    res.json({ ok: true });
   });
 
   router.get("/me", (req, res) => {

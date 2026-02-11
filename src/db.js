@@ -60,6 +60,18 @@ function ensureMessageRoomColumn(db) {
   }
 }
 
+function ensureUserAvatarColumns(db) {
+  const columns = dbAll(db, "PRAGMA table_info(users)");
+  const hasAvatarMime = columns.some((col) => col.name === "avatar_mime");
+  const hasAvatarData = columns.some((col) => col.name === "avatar_data");
+  if (!hasAvatarMime) {
+    dbRun(db, "ALTER TABLE users ADD COLUMN avatar_mime TEXT NOT NULL DEFAULT ''");
+  }
+  if (!hasAvatarData) {
+    dbRun(db, "ALTER TABLE users ADD COLUMN avatar_data TEXT NOT NULL DEFAULT ''");
+  }
+}
+
 function cleanupOldMessages(db) {
   dbRun(db, "DELETE FROM messages WHERE created_at < datetime('now', '-90 days')");
 }
@@ -96,7 +108,9 @@ async function initDatabase() {
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       username TEXT UNIQUE NOT NULL,
-      password_hash TEXT NOT NULL
+      password_hash TEXT NOT NULL,
+      avatar_mime TEXT NOT NULL DEFAULT '',
+      avatar_data TEXT NOT NULL DEFAULT ''
     );
 
     CREATE TABLE IF NOT EXISTS messages (
@@ -128,6 +142,7 @@ async function initDatabase() {
 
   ensureMessageIvColumn(db);
   ensureMessageRoomColumn(db);
+  ensureUserAvatarColumns(db);
   cleanupOldMessages(db);
 
   saveDb(db);
@@ -158,7 +173,7 @@ function ensureChatSettings(db) {
 function getUserFromCookie(db, req) {
   const id = req.signedCookies.user_id;
   if (!id) return null;
-  return dbGet(db, "SELECT id, username FROM users WHERE id = ?", [id]);
+  return dbGet(db, "SELECT id, username, avatar_mime, avatar_data FROM users WHERE id = ?", [id]);
 }
 
 module.exports = {

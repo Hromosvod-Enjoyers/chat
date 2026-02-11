@@ -24,6 +24,8 @@ const authSection = document.getElementById("auth-section");
     const textEncoder = new TextEncoder();
     const textDecoder = new TextDecoder();
     const MAX_IMAGE_BYTES = 700 * 1024;
+    const MAX_AVATAR_BYTES = 200 * 1024;
+    const AVATAR_SIZE = 128;
 
     function setStatus(el, text, isError = false) {
     if (!el) return;
@@ -129,6 +131,14 @@ const authSection = document.getElementById("auth-section");
     function setVisible(el, visible) {
     if (!el) return;
     el.classList.toggle("hidden", !visible);
+    }
+
+    function getAvatarUrl(user) {
+    if (user && user.avatar_mime && user.avatar_data) {
+        return `data:${user.avatar_mime};base64,${user.avatar_data}`;
+    }
+    const seed = user && user.username ? user.username : "default";
+    return `https://api.dicebear.com/9.x/rings/svg?size=32&seed=${encodeURIComponent(seed)}`;
     }
 
     function base64ToArrayBuffer(base64) {
@@ -258,6 +268,73 @@ const authSection = document.getElementById("auth-section");
     }
     }
 
+    async function prepareAvatarImage(file) {
+    const allowedMimes = ["image/jpeg", "image/png", "image/webp"];
+    const outputMime = allowedMimes.includes(file.type) ? file.type : "image/png";
+    const bitmap = await createImageBitmap(file);
+    try {
+        const size = Math.min(bitmap.width, bitmap.height);
+        const sx = Math.floor((bitmap.width - size) / 2);
+        const sy = Math.floor((bitmap.height - size) / 2);
+        const canvas = document.createElement("canvas");
+        canvas.width = AVATAR_SIZE;
+        canvas.height = AVATAR_SIZE;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) throw new Error("Canvas unavailable");
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
+        ctx.drawImage(bitmap, sx, sy, size, size, 0, 0, AVATAR_SIZE, AVATAR_SIZE);
+        const blob = await new Promise((resolve) => canvas.toBlob(resolve, outputMime, 0.92));
+        if (!blob) throw new Error("Image conversion failed");
+        return { buffer: await blob.arrayBuffer(), mime: outputMime };
+    } finally {
+        if (typeof bitmap.close === "function") bitmap.close();
+    }
+    }
+
+    async function uploadAvatar(file) {
+    if (!currentUser) {
+        setStatus(chatStatus, "Login required to set avatar", true);
+        return;
+    }
+    if (!file.type || !file.type.startsWith("image/")) {
+        setStatus(chatStatus, "Only image uploads are allowed", true);
+        return;
+    }
+    try {
+        setStatus(chatStatus, "Preparing avatar...");
+        const { buffer, mime } = await prepareAvatarImage(file);
+        if (buffer.byteLength > MAX_AVATAR_BYTES) {
+        setStatus(chatStatus, "Avatar too large (max 200KB)", true);
+        return;
+        }
+        setStatus(chatStatus, "Uploading avatar...");
+        const data = arrayBufferToBase64(buffer);
+        const res = await fetch("/auth/avatar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mime, data })
+        });
+        if (!res.ok) {
+        let errorText = "Avatar upload failed";
+        try {
+            const payload = await res.json();
+            errorText = payload.error || errorText;
+        } catch (err) {
+        }
+        setStatus(chatStatus, errorText, true);
+        return;
+        }
+        currentUser.avatar_mime = mime;
+        currentUser.avatar_data = data;
+        if (currentUserImg) currentUserImg.src = getAvatarUrl(currentUser);
+        await refreshMessages();
+        setStatus(chatStatus, "Avatar updated");
+    } catch (err) {
+        setStatus(chatStatus, "Avatar upload failed", true);
+    }
+    }
+
     async function decryptMessage(ciphertext, iv) {
     try {
         if (!iv) return "[Unsupported message]";
@@ -311,6 +388,8 @@ const authSection = document.getElementById("auth-section");
         kind: "user",
         id: msg.id,
         username: msg.username,
+        avatar_mime: msg.avatar_mime,
+        avatar_data: msg.avatar_data,
         createdAt: msg.created_at,
         text
         });
@@ -330,6 +409,8 @@ const authSection = document.getElementById("auth-section");
             kind: "image",
             id: img.id,
             username: img.username,
+            avatar_mime: img.avatar_mime,
+            avatar_data: img.avatar_data,
             createdAt: img.created_at,
             iv: img.iv,
             ciphertext: img.ciphertext,
@@ -358,7 +439,7 @@ const authSection = document.getElementById("auth-section");
         const line = document.createElement("div");
         line.className = "chat-line";
         const canDelete = currentUser && item.username === currentUser.username;
-        const avatarUrl = `https://api.dicebear.com/9.x/rings/svg?size=32&seed=${encodeURIComponent(item.username)}`;
+        const avatarUrl = getAvatarUrl(item);
 
         const userZone = document.createElement("div");
         userZone.className = "userzone";
@@ -420,7 +501,7 @@ const authSection = document.getElementById("auth-section");
         const line = document.createElement("div");
         line.className = "chat-line";
         const canDelete = currentUser && item.username === currentUser.username;
-        const avatarUrl = `https://api.dicebear.com/9.x/rings/svg?size=32&seed=${encodeURIComponent(item.username)}`;
+        const avatarUrl = getAvatarUrl(item);
 
         const userZone = document.createElement("div");
         userZone.className = "userzone";
@@ -552,7 +633,7 @@ const authSection = document.getElementById("auth-section");
     setVisible(chatSection, page === "app" && Boolean(currentUser));
 
     if (currentUser && currentUserEl) {
-        currentUserImg.src = 'https://api.dicebear.com/9.x/rings/svg?size=32&seed=' + encodeURIComponent(currentUser.username);
+        currentUserImg.src = getAvatarUrl(currentUser);
         currentUserEl.textContent = `${currentUser.username}`;
         setVisible(logoutBtn, true);
         setVisible(releaseBtn, true);
@@ -784,6 +865,22 @@ const authSection = document.getElementById("auth-section");
         } catch (err) {
         setStatus(chatStatus, "Image upload failed", true);
         }
+    });
+    }
+
+    const avatarInput = document.getElementById("avatar-input");
+    if (avatarInput) {
+    const triggerAvatar = () => {
+        if (!currentUser) return;
+        avatarInput.click();
+    };
+    if (currentUserImg) currentUserImg.addEventListener("click", triggerAvatar);
+    if (currentUserEl) currentUserEl.addEventListener("click", triggerAvatar);
+    avatarInput.addEventListener("change", async () => {
+        const file = avatarInput.files && avatarInput.files[0];
+        avatarInput.value = "";
+        if (!file) return;
+        await uploadAvatar(file);
     });
     }
 

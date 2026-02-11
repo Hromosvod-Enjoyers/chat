@@ -117,6 +117,7 @@ justify-content: space-between;
   margin-right: 6px;
   border-radius: 50%;
   background: #000;
+  object-fit: cover;
 }
 
 .chat-line .time {
@@ -141,13 +142,21 @@ justify-content: space-between;
 
 #current-user-img {
     padding: 0 0 0 20px;
-    width: 10%;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+  cursor: pointer;
 }
 #current-user {
     padding: 0 25px 0 10px;
     color: #fff;
     font-weight: 800;
     font-family: monospace;
+  cursor: pointer;
+}
+#avatar-input {
+  display: none;
 }
 .hidden-mobile {
     display: none;
