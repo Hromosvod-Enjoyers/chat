@@ -88,6 +88,14 @@ function ensureUserProfileColumns(db) {
   }
 }
 
+function ensureUserColorColumn(db) {
+  const columns = dbAll(db, "PRAGMA table_info(users)");
+  const hasColor = columns.some((col) => col.name === "profile_color");
+  if (!hasColor) {
+    dbRun(db, "ALTER TABLE users ADD COLUMN profile_color TEXT NOT NULL DEFAULT ''");
+  }
+}
+
 function cleanupOldMessages(db) {
   dbRun(db, "DELETE FROM messages WHERE created_at < datetime('now', '-90 days')");
 }
@@ -129,7 +137,8 @@ async function initDatabase() {
       avatar_data TEXT NOT NULL DEFAULT '',
       description TEXT NOT NULL DEFAULT '',
       banner_mime TEXT NOT NULL DEFAULT '',
-      banner_data TEXT NOT NULL DEFAULT ''
+      banner_data TEXT NOT NULL DEFAULT '',
+      profile_color TEXT NOT NULL DEFAULT ''
     );
 
     CREATE TABLE IF NOT EXISTS messages (
@@ -163,6 +172,7 @@ async function initDatabase() {
   ensureMessageRoomColumn(db);
   ensureUserAvatarColumns(db);
   ensureUserProfileColumns(db);
+  ensureUserColorColumn(db);
   cleanupOldMessages(db);
 
   saveDb(db);
@@ -193,7 +203,7 @@ function ensureChatSettings(db) {
 function getUserFromCookie(db, req) {
   const id = req.signedCookies.user_id;
   if (!id) return null;
-  return dbGet(db, "SELECT id, username, avatar_mime, avatar_data, description, banner_mime, banner_data FROM users WHERE id = ?", [id]);
+  return dbGet(db, "SELECT id, username, avatar_mime, avatar_data, description, banner_mime, banner_data, profile_color FROM users WHERE id = ?", [id]);
 }
 
 module.exports = {

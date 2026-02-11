@@ -4,6 +4,16 @@ const bcrypt = require("bcryptjs");
 const MAX_AVATAR_BYTES = 200 * 1024;
 const MAX_BANNER_BYTES = 500 * 1024;
 const MAX_DESCRIPTION_LENGTH = 500;
+const PROFILE_COLORS = [
+  "#ff7a59",
+  "#ffc857",
+  "#45d6ff",
+  "#a8ff9f",
+  "#b994ff",
+  "#ff8fb1",
+  "#7cf3ff",
+  "#f2f2f2"
+];
 
 function createAuthRouter({ db, dbGet, dbRun, getUserFromCookie }) {
   const router = express.Router();
@@ -28,14 +38,15 @@ function createAuthRouter({ db, dbGet, dbRun, getUserFromCookie }) {
     }
     const hash = bcrypt.hashSync(password, 10);
     try {
-      dbRun(db, "INSERT INTO users (username, password_hash, avatar_mime, avatar_data, description, banner_mime, banner_data) VALUES (?, ?, ?, ?, ?, ?, ?)", [
+      dbRun(db, "INSERT INTO users (username, password_hash, avatar_mime, avatar_data, description, banner_mime, banner_data, profile_color) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", [
         username.trim(),
         hash,
         "",
         "",
         "",
         "",
-        ""
+        "",
+        PROFILE_COLORS[2]
       ]);
 
       const created = dbGet(db, "SELECT id, username FROM users WHERE username = ?", [
@@ -103,14 +114,15 @@ function createAuthRouter({ db, dbGet, dbRun, getUserFromCookie }) {
 
     const hash = bcrypt.hashSync(password, 10);
     try {
-      dbRun(db, "INSERT INTO users (username, password_hash, avatar_mime, avatar_data, description, banner_mime, banner_data) VALUES (?, ?, ?, ?, ?, ?, ?)", [
+      dbRun(db, "INSERT INTO users (username, password_hash, avatar_mime, avatar_data, description, banner_mime, banner_data, profile_color) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", [
         username.trim(),
         hash,
         "",
         "",
         "",
         "",
-        ""
+        "",
+        PROFILE_COLORS[2]
       ]);
       const created = dbGet(db, "SELECT id, username FROM users WHERE username = ?", [
         username.trim()
@@ -167,7 +179,7 @@ function createAuthRouter({ db, dbGet, dbRun, getUserFromCookie }) {
     const user = getUserFromCookie(db, req);
     if (!user) return res.status(401).json({ error: "Login required" });
 
-    const { description, bannerMime, bannerData } = req.body || {};
+    const { description, bannerMime, bannerData, color } = req.body || {};
     
     if (description !== undefined) {
       if (typeof description !== "string") {
@@ -202,6 +214,13 @@ function createAuthRouter({ db, dbGet, dbRun, getUserFromCookie }) {
         bannerData,
         user.id
       ]);
+    }
+
+    if (color !== undefined) {
+      if (typeof color !== "string" || !PROFILE_COLORS.includes(color)) {
+        return res.status(400).json({ error: "Invalid color" });
+      }
+      dbRun(db, "UPDATE users SET profile_color = ? WHERE id = ?", [color, user.id]);
     }
 
     res.json({ ok: true });

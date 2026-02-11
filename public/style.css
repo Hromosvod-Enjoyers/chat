@@ -135,8 +135,8 @@ header .action {
 
 .chat-line {
   display: grid;
-  grid-template-columns: minmax(160px, 200px) 1fr;
-  gap: 16px;
+  grid-template-columns: 1fr;
+  gap: 10px;
   padding: 16px;
   margin-bottom: 12px;
   border-radius: var(--radius-md);
@@ -163,7 +163,8 @@ header .action {
 
 .chat-line .userzone {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  align-items: center;
   gap: 10px;
 }
 
@@ -175,7 +176,7 @@ header .action {
 
 .chat-line .user {
   font-weight: 600;
-  color: var(--ink-1);
+  color: var(--accent-3);
 }
 
 .chat-line .avatar {
@@ -196,6 +197,7 @@ header .action {
   font-size: 15px;
   line-height: 1.5;
   word-break: break-word;
+  margin-left: 46px;
 }
 
 .mention {
@@ -470,6 +472,26 @@ button.bt2n {
   border-radius: var(--radius-sm);
   color: var(--ink-1);
   font-family: "IBM Plex Mono", monospace;
+}
+
+.profile-colors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.profile-color-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  box-shadow: var(--shadow-2);
+}
+
+.profile-color-btn.selected {
+  border-color: var(--ink-1);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.15);
 }
 
 .banner-upload-zone {

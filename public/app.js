@@ -32,6 +32,16 @@ const authSection = document.getElementById("auth-section");
     const MAX_IMAGE_BYTES = 700 * 1024;
     const MAX_AVATAR_BYTES = 200 * 1024;
     const AVATAR_SIZE = 128;
+    const PROFILE_COLORS = [
+    "#ff7a59",
+    "#ffc857",
+    "#45d6ff",
+    "#a8ff9f",
+    "#b994ff",
+    "#ff8fb1",
+    "#7cf3ff",
+    "#f2f2f2"
+    ];
 
     function setStatus(el, text, isError = false) {
     if (!el) return;
@@ -147,11 +157,19 @@ const authSection = document.getElementById("auth-section");
     return `https://api.dicebear.com/9.x/rings/svg?size=32&seed=${encodeURIComponent(seed)}`;
     }
 
+    function getProfileColor(user) {
+    const color = user && user.profile_color ? user.profile_color : "";
+    return PROFILE_COLORS.includes(color) ? color : PROFILE_COLORS[2];
+    }
+
     function openUserProfile(user) {
     if (!user || !userModal) return;
     userModal.classList.add("show");
     if (userProfileAvatar) userProfileAvatar.src = getAvatarUrl(user);
-    if (userProfileName) userProfileName.textContent = user.username || "";
+    if (userProfileName) {
+        userProfileName.textContent = user.username || "";
+        userProfileName.style.color = getProfileColor(user);
+    }
     if (userProfileDescription) {
         userProfileDescription.textContent = user.description || "No description";
     }
@@ -494,6 +512,7 @@ const authSection = document.getElementById("auth-section");
         description: msg.description,
         banner_mime: msg.banner_mime,
         banner_data: msg.banner_data,
+        profile_color: msg.profile_color,
         createdAt: msg.created_at,
         text
         });
@@ -518,6 +537,7 @@ const authSection = document.getElementById("auth-section");
             description: img.description,
             banner_mime: img.banner_mime,
             banner_data: img.banner_data,
+            profile_color: img.profile_color,
             createdAt: img.created_at,
             iv: img.iv,
             ciphertext: img.ciphertext,
@@ -562,6 +582,7 @@ const authSection = document.getElementById("auth-section");
         const userSpan = document.createElement("span");
         userSpan.className = "user";
         userSpan.textContent = item.username;
+        userSpan.style.color = getProfileColor(item);
 
         userWrap.appendChild(avatar);
         userWrap.appendChild(userSpan);
@@ -665,6 +686,7 @@ const authSection = document.getElementById("auth-section");
         const userSpan = document.createElement("span");
         userSpan.className = "user";
         userSpan.textContent = item.username;
+        userSpan.style.color = getProfileColor(item);
 
         userWrap.appendChild(avatar);
         userWrap.appendChild(userSpan);
@@ -803,6 +825,7 @@ const authSection = document.getElementById("auth-section");
     if (currentUser && currentUserEl) {
         currentUserImg.src = getAvatarUrl(currentUser);
         currentUserEl.textContent = `${currentUser.username}`;
+        currentUserEl.style.color = getProfileColor(currentUser);
         setVisible(logoutBtn, true);
         setVisible(releaseBtn, true);
     }
@@ -1048,6 +1071,7 @@ const authSection = document.getElementById("auth-section");
     const bannerUploadBtn = document.getElementById("banner-upload-btn");
     const bannerPreview = document.getElementById("banner-preview");
     const profileSaveBtn = document.getElementById("profile-save-btn");
+    const profileColors = document.getElementById("profile-colors");
     userModal = document.getElementById("user-modal");
     userModalClose = document.querySelector("#user-modal .modal-close");
     userBanner = document.getElementById("user-banner");
@@ -1057,12 +1081,32 @@ const authSection = document.getElementById("auth-section");
 
     let pendingBannerData = null;
     let pendingBannerMime = null;
+    let pendingProfileColor = "";
+
+    const renderProfileColors = (selectedColor) => {
+        if (!profileColors) return;
+        profileColors.textContent = "";
+        PROFILE_COLORS.forEach((color) => {
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "profile-color-btn";
+            btn.style.backgroundColor = color;
+            if (color === selectedColor) btn.classList.add("selected");
+            btn.addEventListener("click", () => {
+                pendingProfileColor = color;
+                renderProfileColors(color);
+            });
+            profileColors.appendChild(btn);
+        });
+    };
 
     const openProfileModal = () => {
         if (!currentUser) return;
         if (profileModal) {
             profileModal.classList.add("show");
             if (profileDescription) profileDescription.value = currentUser.description || "";
+            pendingProfileColor = getProfileColor(currentUser);
+            renderProfileColors(pendingProfileColor);
             if (bannerPreview) {
                 if (currentUser.banner_mime && currentUser.banner_data) {
                     bannerPreview.style.backgroundImage = `url(data:${currentUser.banner_mime};base64,${currentUser.banner_data})`;
@@ -1142,6 +1186,9 @@ const authSection = document.getElementById("auth-section");
                 updates.bannerMime = pendingBannerMime;
                 updates.bannerData = pendingBannerData;
             }
+            if (pendingProfileColor) {
+                updates.color = pendingProfileColor;
+            }
             setStatus(chatStatus, "Saving profile...");
             const res = await fetch("/auth/profile", {
                 method: "POST",
@@ -1162,6 +1209,10 @@ const authSection = document.getElementById("auth-section");
             if (pendingBannerData) {
                 currentUser.banner_mime = pendingBannerMime;
                 currentUser.banner_data = pendingBannerData;
+            }
+            if (pendingProfileColor) {
+                currentUser.profile_color = pendingProfileColor;
+                if (currentUserEl) currentUserEl.style.color = getProfileColor(currentUser);
             }
             if (profileModal) profileModal.classList.remove("show");
             setStatus(chatStatus, "Profile updated");

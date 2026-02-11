@@ -24,7 +24,7 @@ function createMessagesRouter({
     const rows = dbAll(
       db,
       `
-        SELECT m.id, m.room_id, m.iv, m.ciphertext, m.created_at, u.username, u.avatar_mime, u.avatar_data, u.description, u.banner_mime, u.banner_data
+        SELECT m.id, m.room_id, m.iv, m.ciphertext, m.created_at, u.username, u.avatar_mime, u.avatar_data, u.description, u.banner_mime, u.banner_data, u.profile_color
         FROM messages m
         JOIN users u ON u.id = m.user_id
         WHERE m.room_id = ?
@@ -36,7 +36,7 @@ function createMessagesRouter({
     const images = dbAll(
       db,
       `
-        SELECT i.id, i.room_id, i.iv, i.ciphertext, i.created_at, i.mime, u.username, u.avatar_mime, u.avatar_data, u.description, u.banner_mime, u.banner_data
+        SELECT i.id, i.room_id, i.iv, i.ciphertext, i.created_at, i.mime, u.username, u.avatar_mime, u.avatar_data, u.description, u.banner_mime, u.banner_data, u.profile_color
         FROM images i
         JOIN users u ON u.id = i.user_id
         WHERE i.room_id = ?
@@ -80,7 +80,7 @@ function createMessagesRouter({
       let row = dbGet(
         db,
         `
-          SELECT m.id, m.room_id, m.iv, m.ciphertext, m.created_at, u.username, u.avatar_mime, u.avatar_data, u.description, u.banner_mime, u.banner_data
+          SELECT m.id, m.room_id, m.iv, m.ciphertext, m.created_at, u.username, u.avatar_mime, u.avatar_data, u.description, u.banner_mime, u.banner_data, u.profile_color
           FROM messages m
           JOIN users u ON u.id = m.user_id
           WHERE m.id = (SELECT last_insert_rowid())
@@ -91,7 +91,7 @@ function createMessagesRouter({
         row = dbGet(
           db,
           `
-            SELECT m.id, m.room_id, m.iv, m.ciphertext, m.created_at, u.username, u.avatar_mime, u.avatar_data, u.description, u.banner_mime, u.banner_data
+            SELECT m.id, m.room_id, m.iv, m.ciphertext, m.created_at, u.username, u.avatar_mime, u.avatar_data, u.description, u.banner_mime, u.banner_data, u.profile_color
             FROM messages m
             JOIN users u ON u.id = m.user_id
             WHERE m.user_id = ? AND m.room_id = ?
@@ -148,7 +148,7 @@ function createMessagesRouter({
       const row = dbGet(
         db,
         `
-          SELECT i.id, i.room_id, i.iv, i.ciphertext, i.created_at, i.mime, u.username, u.avatar_mime, u.avatar_data, u.description, u.banner_mime, u.banner_data
+          SELECT i.id, i.room_id, i.iv, i.ciphertext, i.created_at, i.mime, u.username, u.avatar_mime, u.avatar_data, u.description, u.banner_mime, u.banner_data, u.profile_color
           FROM images i
           JOIN users u ON u.id = i.user_id
           WHERE i.id = (SELECT last_insert_rowid())
