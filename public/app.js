@@ -531,17 +531,48 @@ const authSection = document.getElementById("auth-section");
         messageDiv.className = "message";
         const decrypted = await decryptBinary(item.ciphertext, item.iv);
         if (!decrypted) {
-            messageDiv.textContent = "[Unable to decrypt image]";
+            messageDiv.textContent = "[Unable to decrypt file]";
         } else {
             const blob = new Blob([decrypted], { type: item.mime || "application/octet-stream" });
-            const imgEl = document.createElement("img");
-            imgEl.className = "chat-image";
-            imgEl.loading = "lazy";
             const objectUrl = URL.createObjectURL(blob);
-            imgEl.src = objectUrl;
-            imgEl.alt = "Image";
-            imgEl.addEventListener("load", () => URL.revokeObjectURL(objectUrl));
-            messageDiv.appendChild(imgEl);
+            const mime = item.mime || "";
+            
+            if (mime.startsWith("image/")) {
+                const imgEl = document.createElement("img");
+                imgEl.className = "chat-image";
+                imgEl.loading = "lazy";
+                imgEl.src = objectUrl;
+                imgEl.alt = "Image";
+                imgEl.addEventListener("load", () => URL.revokeObjectURL(objectUrl));
+                messageDiv.appendChild(imgEl);
+            } else if (mime.startsWith("video/")) {
+                const videoEl = document.createElement("video");
+                videoEl.className = "chat-video";
+                videoEl.controls = true;
+                videoEl.src = objectUrl;
+                videoEl.addEventListener("loadedmetadata", () => URL.revokeObjectURL(objectUrl));
+                messageDiv.appendChild(videoEl);
+            } else if (mime.startsWith("audio/")) {
+                const audioEl = document.createElement("audio");
+                audioEl.className = "chat-audio";
+                audioEl.controls = true;
+                audioEl.src = objectUrl;
+                audioEl.addEventListener("loadedmetadata", () => URL.revokeObjectURL(objectUrl));
+                messageDiv.appendChild(audioEl);
+            } else {
+                const fileDiv = document.createElement("div");
+                fileDiv.className = "chat-file";
+                const fileIcon = document.createElement("span");
+                fileIcon.textContent = "📎 ";
+                const downloadLink = document.createElement("a");
+                downloadLink.href = objectUrl;
+                downloadLink.download = "file";
+                downloadLink.textContent = mime || "Unknown file";
+                downloadLink.className = "file-link";
+                fileDiv.appendChild(fileIcon);
+                fileDiv.appendChild(downloadLink);
+                messageDiv.appendChild(fileDiv);
+            }
         }
 
         line.appendChild(userZone);
@@ -885,34 +916,38 @@ const authSection = document.getElementById("auth-section");
         imageInput.value = "";
         if (!file) return;
         if (!currentUser) {
-        setStatus(chatStatus, "Login required to send images", true);
+        setStatus(chatStatus, "Login required to send files", true);
         return;
         }
         if (!chatKey) {
-        setStatus(chatStatus, "Unlock chat to send images", true);
-        return;
-        }
-        if (!file.type || !file.type.startsWith("image/")) {
-        setStatus(chatStatus, "Only image uploads are allowed", true);
+        setStatus(chatStatus, "Unlock chat to send files", true);
         return;
         }
         try {
-        setStatus(chatStatus, "Preparing image...");
-        const { buffer, mime } = await stripImageMetadata(file);
+        setStatus(chatStatus, "Preparing file...");
+        let buffer, mime;
+        if (file.type && file.type.startsWith("image/") && file.type !== "image/gif") {
+            const result = await stripImageMetadata(file);
+            buffer = result.buffer;
+            mime = result.mime;
+        } else {
+            buffer = await file.arrayBuffer();
+            mime = file.type || "application/octet-stream";
+        }
         if (buffer.byteLength > MAX_IMAGE_BYTES) {
-            setStatus(chatStatus, "Image too large (max 700KB)", true);
+            setStatus(chatStatus, "File too large (max 700KB)", true);
             return;
         }
-        setStatus(chatStatus, "Encrypting image...");
+        setStatus(chatStatus, "Encrypting file...");
         const encrypted = await encryptBinary(buffer);
-        setStatus(chatStatus, "Uploading image...");
+        setStatus(chatStatus, "Uploading file...");
         const res = await fetch("/api/images", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ ...encrypted, roomId, mime })
         });
         if (!res.ok) {
-            let errorText = "Image upload failed";
+            let errorText = "File upload failed";
             try {
             const data = await res.json();
             errorText = data.error || errorText;
@@ -922,10 +957,10 @@ const authSection = document.getElementById("auth-section");
             setStatus(chatStatus, errorText, true);
             return;
         }
-        setStatus(chatStatus, "Image sent");
+        setStatus(chatStatus, "File sent");
         await refreshMessages();
         } catch (err) {
-        setStatus(chatStatus, "Image upload failed", true);
+        setStatus(chatStatus, "File upload failed", true);
         }
     });
     }

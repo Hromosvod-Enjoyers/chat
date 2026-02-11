@@ -130,12 +130,8 @@ function createMessagesRouter({
       return res.status(400).json({ error: "ciphertext, iv, roomId, and mime required" });
     }
 
-    if (!mime.startsWith("image/")) {
-      return res.status(400).json({ error: "Only image uploads allowed" });
-    }
-
     if (ciphertext.length > 1000000) {
-      return res.status(400).json({ error: "Image too large" });
+      return res.status(400).json({ error: "File too large" });
     }
 
     try {
@@ -165,7 +161,7 @@ function createMessagesRouter({
 
       res.json({ ok: true });
     } catch (err) {
-      res.status(500).json({ error: "Failed to store image" });
+      res.status(500).json({ error: "Failed to store file" });
     }
   });
 

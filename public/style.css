@@ -224,6 +224,38 @@ justify-content: space-between;
   display: block;
 }
 
+.message video.chat-video {
+  max-width: 420px;
+  max-height: 320px;
+  border-radius: 8px;
+  display: block;
+}
+
+.message audio.chat-audio {
+  max-width: 320px;
+  display: block;
+}
+
+.chat-file {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #141327;
+  border-radius: 6px;
+  max-width: 320px;
+}
+
+.file-link {
+  color: #b0ffbc;
+  text-decoration: none;
+  font-family: monospace;
+}
+
+.file-link:hover {
+  text-decoration: underline;
+}
+
 .button {
   -webkit-appearance: none;
   appearance: none;
