@@ -239,6 +239,25 @@ const authSection = document.getElementById("auth-section");
     };
     }
 
+    async function stripImageMetadata(file) {
+    const allowedMimes = ["image/jpeg", "image/png", "image/webp"];
+    const outputMime = allowedMimes.includes(file.type) ? file.type : "image/png";
+    const bitmap = await createImageBitmap(file);
+    try {
+        const canvas = document.createElement("canvas");
+        canvas.width = bitmap.width;
+        canvas.height = bitmap.height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) throw new Error("Canvas unavailable");
+        ctx.drawImage(bitmap, 0, 0);
+        const blob = await new Promise((resolve) => canvas.toBlob(resolve, outputMime, 0.92));
+        if (!blob) throw new Error("Image conversion failed");
+        return { buffer: await blob.arrayBuffer(), mime: outputMime };
+    } finally {
+        if (typeof bitmap.close === "function") bitmap.close();
+    }
+    }
+
     async function decryptMessage(ciphertext, iv) {
     try {
         if (!iv) return "[Unsupported message]";
@@ -734,20 +753,20 @@ const authSection = document.getElementById("auth-section");
         setStatus(chatStatus, "Only image uploads are allowed", true);
         return;
         }
-        if (file.size > MAX_IMAGE_BYTES) {
-        setStatus(chatStatus, "Image too large (max 700KB)", true);
-        return;
-        }
-
         try {
+        setStatus(chatStatus, "Preparing image...");
+        const { buffer, mime } = await stripImageMetadata(file);
+        if (buffer.byteLength > MAX_IMAGE_BYTES) {
+            setStatus(chatStatus, "Image too large (max 700KB)", true);
+            return;
+        }
         setStatus(chatStatus, "Encrypting image...");
-        const buffer = await file.arrayBuffer();
         const encrypted = await encryptBinary(buffer);
         setStatus(chatStatus, "Uploading image...");
         const res = await fetch("/api/images", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ ...encrypted, roomId, mime: file.type })
+            body: JSON.stringify({ ...encrypted, roomId, mime })
         });
         if (!res.ok) {
             let errorText = "Image upload failed";
