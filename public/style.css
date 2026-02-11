@@ -29,6 +29,8 @@ body {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
   background: radial-gradient(1200px 700px at 20% -20%, #2b2b5c 0%, rgba(43, 43, 92, 0) 55%),
     radial-gradient(900px 600px at 120% 20%, #2a3d5f 0%, rgba(42, 61, 95, 0) 50%),
     linear-gradient(180deg, var(--bg-1) 0%, var(--bg-0) 100%);
@@ -120,6 +122,7 @@ header .action {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  min-height: 0;
 }
 
 .chat-log {
@@ -131,6 +134,28 @@ header .action {
   border: 1px solid rgba(255, 255, 255, 0.05);
   box-shadow: var(--shadow-2);
   scroll-behavior: smooth;
+  min-height: 0;
+  scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
+  scrollbar-width: thin;
+}
+
+.chat-log::-webkit-scrollbar {
+  width: 10px;
+}
+
+.chat-log::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.chat-log::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(255, 122, 89, 0.7), rgba(69, 214, 255, 0.7));
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.chat-log::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(255, 122, 89, 0.9), rgba(69, 214, 255, 0.9));
 }
 
 .chat-line {
