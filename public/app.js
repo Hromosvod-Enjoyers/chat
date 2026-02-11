@@ -148,8 +148,46 @@ const authSection = document.getElementById("auth-section");
     try {
         const url = new URL(trimmed);
         if (url.protocol !== "http:" && url.protocol !== "https:") return "";
-        if (!url.pathname.toLowerCase().endsWith(".gif")) return "";
-        return url.toString();
+        const lowerPath = url.pathname.toLowerCase();
+        if (lowerPath.endsWith(".gif")) return url.toString();
+        if (url.hostname === "giphy.com") {
+        const parts = url.pathname.split("-");
+        const id = parts[parts.length - 1];
+        if (id) return `https://media.giphy.com/media/${id}/giphy.gif`;
+        }
+        return "";
+    } catch (err) {
+        return "";
+    }
+    }
+
+    function getTenorOembedUrl(text) {
+    if (!text) return "";
+    const trimmed = text.trim();
+    if (!trimmed) return "";
+    try {
+        const url = new URL(trimmed);
+        if (url.protocol !== "http:" && url.protocol !== "https:") return "";
+        if (!url.hostname.endsWith("tenor.com")) return "";
+        if (url.hostname === "media.tenor.com") return "";
+        return `https://tenor.com/oembed?url=${encodeURIComponent(url.toString())}`;
+    } catch (err) {
+        return "";
+    }
+    }
+
+    async function getGifUrlForMessage(text) {
+    const direct = getGifUrl(text);
+    if (direct) return direct;
+    const oembedUrl = getTenorOembedUrl(text);
+    if (!oembedUrl) return "";
+    try {
+        const res = await fetch(oembedUrl);
+        if (!res.ok) return "";
+        const data = await res.json();
+        const candidate = data && (data.thumbnail_url || data.url);
+        if (!candidate || typeof candidate !== "string") return "";
+        return candidate;
     } catch (err) {
         return "";
     }
@@ -553,7 +591,7 @@ const authSection = document.getElementById("auth-section");
 
         const messageDiv = document.createElement("div");
         messageDiv.className = "message";
-        const gifUrl = getGifUrl(item.text);
+        const gifUrl = await getGifUrlForMessage(item.text);
         if (gifUrl) {
         const imgEl = document.createElement("img");
         imgEl.className = "chat-image";
