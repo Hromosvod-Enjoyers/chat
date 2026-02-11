@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body data-page="login">
+  <section id="auth-section">
+    <form id="auth-form">
+    <header>
+        <div class="brand">
+            <h1><span class="icon">⚡</span><span class="hidden-mobile">Hromosvody</span><span class="chat hidden-mobile">Chat</span></h1>
+        </div>
+    </header>
+    <br />
+      <input class="input" type="text" id="server-selection" placeholder="Server selection" />
+      <input class="input" type="text" id="auth-username" placeholder="Username" required />
+      <input class="input" type="password" id="auth-password" placeholder="Password" required />
+      <button class="bt2n" type="submit">Enter (Register or Login)</button>
+    </form>
+    <div class="status" id="auth-status"></div>
+    <div id="current-user"></div>
+  </section>
+
+  <script src="/app.js"></script>
+</body>
+</html>

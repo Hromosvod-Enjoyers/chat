@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chat</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body data-page="app">
+    <header>
+        <div class="brand">
+            <h1><span class="icon">⚡</span><span class="hidden-mobile">Hromosvody</span><span class="chat hidden-mobile">Chat</span></h1>
+        </div>
+        <div class="action">
+
+            <button id="release-btn" class="hidden">Release Username</button>
+            <img id="current-user-img" class="avatar" src="" alt="Avatar" />
+<div id="current-user"></div>
+<a  id="logout-btn"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="#fff" class="bi bi-box-arrow-right" viewBox="0 0 16 16">
+  <path fill-rule="evenodd" d="M10 12.5a.5.5 0 0 1-.5.5h-8a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5h8a.5.5 0 0 1 .5.5v2a.5.5 0 0 0 1 0v-2A1.5 1.5 0 0 0 9.5 2h-8A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h8a1.5 1.5 0 0 0 1.5-1.5v-2a.5.5 0 0 0-1 0z"/>
+  <path fill-rule="evenodd" d="M15.854 8.354a.5.5 0 0 0 0-.708l-3-3a.5.5 0 0 0-.708.708L14.293 7.5H5.5a.5.5 0 0 0 0 1h8.793l-2.147 2.146a.5.5 0 0 0 .708.708z"/>
+</svg></a>
+        </div>
+    </header>
+  <section id="chat-section">
+    <div id="chat-log" class="chat-log"></div>
+    <form id="chat-form">
+      <input type="text" id="chat-input" maxlength="800" placeholder="Type message" required />
+      <label class="image-upload">
+        <input type="file" id="image-input" accept="image/*" />
+        <span>Image</span>
+      </label>
+<button type="submit" class="button">
+  <div class="button-top">Send -></div>
+  <div class="button-bottom"></div>
+  <div class="button-base"></div>
+</button>
+    </form>
+    <div class="status" id="chat-status"></div>
+  </section>
+
+  <script src="/app.js"></script>
+</body>
+</html>
