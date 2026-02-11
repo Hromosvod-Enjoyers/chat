@@ -20,6 +20,12 @@ const authSection = document.getElementById("auth-section");
     let serverMessages = [];
     let timeAgoTimer = null;
     let duplicateReloaded = false;
+    let userModal = null;
+    let userModalClose = null;
+    let userBanner = null;
+    let userProfileAvatar = null;
+    let userProfileName = null;
+    let userProfileDescription = null;
 
     const textEncoder = new TextEncoder();
     const textDecoder = new TextDecoder();
@@ -139,6 +145,25 @@ const authSection = document.getElementById("auth-section");
     }
     const seed = user && user.username ? user.username : "default";
     return `https://api.dicebear.com/9.x/rings/svg?size=32&seed=${encodeURIComponent(seed)}`;
+    }
+
+    function openUserProfile(user) {
+    if (!user || !userModal) return;
+    userModal.classList.add("show");
+    if (userProfileAvatar) userProfileAvatar.src = getAvatarUrl(user);
+    if (userProfileName) userProfileName.textContent = user.username || "";
+    if (userProfileDescription) {
+        userProfileDescription.textContent = user.description || "No description";
+    }
+    if (userBanner) {
+        if (user.banner_mime && user.banner_data) {
+        userBanner.style.backgroundImage = `url(data:${user.banner_mime};base64,${user.banner_data})`;
+        userBanner.textContent = "";
+        } else {
+        userBanner.style.backgroundImage = "";
+        userBanner.textContent = "No banner";
+        }
+    }
     }
 
     function getGifUrl(text) {
@@ -442,6 +467,9 @@ const authSection = document.getElementById("auth-section");
         username: msg.username,
         avatar_mime: msg.avatar_mime,
         avatar_data: msg.avatar_data,
+        description: msg.description,
+        banner_mime: msg.banner_mime,
+        banner_data: msg.banner_data,
         createdAt: msg.created_at,
         text
         });
@@ -463,6 +491,9 @@ const authSection = document.getElementById("auth-section");
             username: img.username,
             avatar_mime: img.avatar_mime,
             avatar_data: img.avatar_data,
+            description: img.description,
+            banner_mime: img.banner_mime,
+            banner_data: img.banner_data,
             createdAt: img.created_at,
             iv: img.iv,
             ciphertext: img.ciphertext,
@@ -510,6 +541,16 @@ const authSection = document.getElementById("auth-section");
 
         userWrap.appendChild(avatar);
         userWrap.appendChild(userSpan);
+        userWrap.classList.add("user-clickable");
+        userWrap.addEventListener("click", () => openUserProfile(item));
+        avatar.addEventListener("click", (event) => {
+            event.stopPropagation();
+            openUserProfile(item);
+        });
+        userSpan.addEventListener("click", (event) => {
+            event.stopPropagation();
+            openUserProfile(item);
+        });
 
         const timeSpan = document.createElement("span");
         timeSpan.className = "time time-ago";
@@ -603,6 +644,16 @@ const authSection = document.getElementById("auth-section");
 
         userWrap.appendChild(avatar);
         userWrap.appendChild(userSpan);
+        userWrap.classList.add("user-clickable");
+        userWrap.addEventListener("click", () => openUserProfile(item));
+        avatar.addEventListener("click", (event) => {
+        event.stopPropagation();
+        openUserProfile(item);
+        });
+        userSpan.addEventListener("click", (event) => {
+        event.stopPropagation();
+        openUserProfile(item);
+        });
 
         const timeSpan = document.createElement("span");
         timeSpan.className = "time time-ago";
@@ -966,13 +1017,135 @@ const authSection = document.getElementById("auth-section");
     }
 
     const avatarInput = document.getElementById("avatar-input");
-    if (avatarInput) {
-    const triggerAvatar = () => {
+    const profileModal = document.getElementById("profile-modal");
+    const profileModalClose = document.querySelector("#profile-modal .modal-close");
+    const profileDescription = document.getElementById("profile-description");
+    const bannerInput = document.getElementById("banner-input");
+    const bannerUploadBtn = document.getElementById("banner-upload-btn");
+    const bannerPreview = document.getElementById("banner-preview");
+    const profileSaveBtn = document.getElementById("profile-save-btn");
+    userModal = document.getElementById("user-modal");
+    userModalClose = document.querySelector("#user-modal .modal-close");
+    userBanner = document.getElementById("user-banner");
+    userProfileAvatar = document.getElementById("user-profile-avatar");
+    userProfileName = document.getElementById("user-profile-name");
+    userProfileDescription = document.getElementById("user-profile-description");
+
+    let pendingBannerData = null;
+    let pendingBannerMime = null;
+
+    const openProfileModal = () => {
         if (!currentUser) return;
-        avatarInput.click();
+        if (profileModal) {
+            profileModal.classList.add("show");
+            if (profileDescription) profileDescription.value = currentUser.description || "";
+            if (bannerPreview) {
+                if (currentUser.banner_mime && currentUser.banner_data) {
+                    bannerPreview.style.backgroundImage = `url(data:${currentUser.banner_mime};base64,${currentUser.banner_data})`;
+                    bannerPreview.classList.add("has-image");
+                    bannerPreview.textContent = "";
+                } else {
+                    bannerPreview.style.backgroundImage = "";
+                    bannerPreview.classList.remove("has-image");
+                    bannerPreview.textContent = "No banner";
+                }
+            }
+            pendingBannerData = null;
+            pendingBannerMime = null;
+        }
     };
-    if (currentUserImg) currentUserImg.addEventListener("click", triggerAvatar);
-    if (currentUserEl) currentUserEl.addEventListener("click", triggerAvatar);
+
+    if (currentUserImg) currentUserImg.addEventListener("click", openProfileModal);
+    if (currentUserEl) currentUserEl.addEventListener("click", openProfileModal);
+
+    if (profileModalClose && profileModal) {
+        profileModalClose.addEventListener("click", () => {
+            profileModal.classList.remove("show");
+        });
+        profileModal.addEventListener("click", (e) => {
+            if (e.target === profileModal) profileModal.classList.remove("show");
+        });
+    }
+
+    if (userModalClose && userModal) {
+        userModalClose.addEventListener("click", () => {
+            userModal.classList.remove("show");
+        });
+        userModal.addEventListener("click", (e) => {
+            if (e.target === userModal) userModal.classList.remove("show");
+        });
+    }
+
+    if (bannerUploadBtn && bannerInput) {
+        bannerUploadBtn.addEventListener("click", () => bannerInput.click());
+    }
+
+    if (bannerInput) {
+        bannerInput.addEventListener("change", async () => {
+            const file = bannerInput.files && bannerInput.files[0];
+            bannerInput.value = "";
+            if (!file) return;
+            if (!file.type || !file.type.startsWith("image/")) {
+                setStatus(chatStatus, "Only image uploads are allowed", true);
+                return;
+            }
+            try {
+                const { buffer, mime } = await prepareAvatarImage(file);
+                if (buffer.byteLength > 500 * 1024) {
+                    setStatus(chatStatus, "Banner too large (max 500KB)", true);
+                    return;
+                }
+                pendingBannerData = arrayBufferToBase64(buffer);
+                pendingBannerMime = mime;
+                if (bannerPreview) {
+                    bannerPreview.style.backgroundImage = `url(data:${mime};base64,${pendingBannerData})`;
+                    bannerPreview.classList.add("has-image");
+                    bannerPreview.textContent = "";
+                }
+                setStatus(chatStatus, "Banner ready to save");
+            } catch (err) {
+                setStatus(chatStatus, "Banner upload failed", true);
+            }
+        });
+    }
+
+    if (profileSaveBtn) {
+        profileSaveBtn.addEventListener("click", async () => {
+            if (!currentUser) return;
+            const description = profileDescription ? profileDescription.value.trim() : "";
+            const updates = { description };
+            if (pendingBannerData !== null && pendingBannerMime !== null) {
+                updates.bannerMime = pendingBannerMime;
+                updates.bannerData = pendingBannerData;
+            }
+            setStatus(chatStatus, "Saving profile...");
+            const res = await fetch("/auth/profile", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(updates)
+            });
+            if (!res.ok) {
+                let errorText = "Profile update failed";
+                try {
+                    const data = await res.json();
+                    errorText = data.error || errorText;
+                } catch (err) {
+                }
+                setStatus(chatStatus, errorText, true);
+                return;
+            }
+            currentUser.description = description;
+            if (pendingBannerData) {
+                currentUser.banner_mime = pendingBannerMime;
+                currentUser.banner_data = pendingBannerData;
+            }
+            if (profileModal) profileModal.classList.remove("show");
+            setStatus(chatStatus, "Profile updated");
+            await refreshMessages();
+        });
+    }
+
+    if (avatarInput) {
     avatarInput.addEventListener("change", async () => {
         const file = avatarInput.files && avatarInput.files[0];
         avatarInput.value = "";

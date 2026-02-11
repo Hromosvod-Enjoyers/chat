@@ -25,6 +25,40 @@
     </header>
   <section id="chat-section">
     <div id="chat-log" class="chat-log"></div>
+    <div id="profile-modal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Edit Profile</h3>
+          <button class="modal-close">&times;</button>
+        </div>
+        <div class="modal-body">
+          <label for="profile-description">Description</label>
+          <textarea id="profile-description" maxlength="500" placeholder="Tell others about yourself..."></textarea>
+          <label>Banner Image</label>
+          <div class="banner-upload-zone">
+            <input type="file" id="banner-input" accept="image/*" />
+            <div id="banner-preview"></div>
+            <button type="button" id="banner-upload-btn" class="modal-btn">Upload Banner</button>
+          </div>
+          <button type="button" id="profile-save-btn" class="modal-btn modal-btn-primary">Save</button>
+        </div>
+      </div>
+    </div>
+    <div id="user-modal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <button class="modal-close">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div id="user-banner" class="user-banner">No banner</div>
+          <div class="user-profile-row">
+            <img id="user-profile-avatar" class="avatar" src="" alt="Avatar" />
+            <div id="user-profile-name" class="user-profile-name"></div>
+          </div>
+          <div id="user-profile-description" class="user-profile-description">No description</div>
+        </div>
+      </div>
+    </div>
     <form id="chat-form">
       <input type="text" id="chat-input" maxlength="800" placeholder="Type message" required />
       <label class="image-upload">

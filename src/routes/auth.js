@@ -2,6 +2,8 @@ const express = require("express");
 const bcrypt = require("bcryptjs");
 
 const MAX_AVATAR_BYTES = 200 * 1024;
+const MAX_BANNER_BYTES = 500 * 1024;
+const MAX_DESCRIPTION_LENGTH = 500;
 
 function createAuthRouter({ db, dbGet, dbRun, getUserFromCookie }) {
   const router = express.Router();
@@ -26,9 +28,12 @@ function createAuthRouter({ db, dbGet, dbRun, getUserFromCookie }) {
     }
     const hash = bcrypt.hashSync(password, 10);
     try {
-      dbRun(db, "INSERT INTO users (username, password_hash, avatar_mime, avatar_data) VALUES (?, ?, ?, ?)", [
+      dbRun(db, "INSERT INTO users (username, password_hash, avatar_mime, avatar_data, description, banner_mime, banner_data) VALUES (?, ?, ?, ?, ?, ?, ?)", [
         username.trim(),
         hash,
+        "",
+        "",
+        "",
         "",
         ""
       ]);
@@ -98,9 +103,12 @@ function createAuthRouter({ db, dbGet, dbRun, getUserFromCookie }) {
 
     const hash = bcrypt.hashSync(password, 10);
     try {
-      dbRun(db, "INSERT INTO users (username, password_hash, avatar_mime, avatar_data) VALUES (?, ?, ?, ?)", [
+      dbRun(db, "INSERT INTO users (username, password_hash, avatar_mime, avatar_data, description, banner_mime, banner_data) VALUES (?, ?, ?, ?, ?, ?, ?)", [
         username.trim(),
         hash,
+        "",
+        "",
+        "",
         "",
         ""
       ]);
@@ -152,6 +160,50 @@ function createAuthRouter({ db, dbGet, dbRun, getUserFromCookie }) {
       data,
       user.id
     ]);
+    res.json({ ok: true });
+  });
+
+  router.post("/profile", (req, res) => {
+    const user = getUserFromCookie(db, req);
+    if (!user) return res.status(401).json({ error: "Login required" });
+
+    const { description, bannerMime, bannerData } = req.body || {};
+    
+    if (description !== undefined) {
+      if (typeof description !== "string") {
+        return res.status(400).json({ error: "Invalid description" });
+      }
+      if (description.length > MAX_DESCRIPTION_LENGTH) {
+        return res.status(400).json({ error: "Description too long" });
+      }
+      dbRun(db, "UPDATE users SET description = ? WHERE id = ?", [description.trim(), user.id]);
+    }
+
+    if (bannerMime !== undefined && bannerData !== undefined) {
+      if (typeof bannerMime !== "string" || typeof bannerData !== "string") {
+        return res.status(400).json({ error: "Invalid banner data" });
+      }
+      if (bannerMime && !bannerMime.startsWith("image/")) {
+        return res.status(400).json({ error: "Only image uploads allowed" });
+      }
+      if (bannerData) {
+        let buffer;
+        try {
+          buffer = Buffer.from(bannerData, "base64");
+        } catch (err) {
+          return res.status(400).json({ error: "Invalid banner data" });
+        }
+        if (buffer.length > MAX_BANNER_BYTES) {
+          return res.status(400).json({ error: "Banner too large" });
+        }
+      }
+      dbRun(db, "UPDATE users SET banner_mime = ?, banner_data = ? WHERE id = ?", [
+        bannerMime,
+        bannerData,
+        user.id
+      ]);
+    }
+
     res.json({ ok: true });
   });
 

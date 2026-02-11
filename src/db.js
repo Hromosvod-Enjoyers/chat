@@ -72,6 +72,22 @@ function ensureUserAvatarColumns(db) {
   }
 }
 
+function ensureUserProfileColumns(db) {
+  const columns = dbAll(db, "PRAGMA table_info(users)");
+  const hasDescription = columns.some((col) => col.name === "description");
+  const hasBannerMime = columns.some((col) => col.name === "banner_mime");
+  const hasBannerData = columns.some((col) => col.name === "banner_data");
+  if (!hasDescription) {
+    dbRun(db, "ALTER TABLE users ADD COLUMN description TEXT NOT NULL DEFAULT ''");
+  }
+  if (!hasBannerMime) {
+    dbRun(db, "ALTER TABLE users ADD COLUMN banner_mime TEXT NOT NULL DEFAULT ''");
+  }
+  if (!hasBannerData) {
+    dbRun(db, "ALTER TABLE users ADD COLUMN banner_data TEXT NOT NULL DEFAULT ''");
+  }
+}
+
 function cleanupOldMessages(db) {
   dbRun(db, "DELETE FROM messages WHERE created_at < datetime('now', '-90 days')");
 }
@@ -110,7 +126,10 @@ async function initDatabase() {
       username TEXT UNIQUE NOT NULL,
       password_hash TEXT NOT NULL,
       avatar_mime TEXT NOT NULL DEFAULT '',
-      avatar_data TEXT NOT NULL DEFAULT ''
+      avatar_data TEXT NOT NULL DEFAULT '',
+      description TEXT NOT NULL DEFAULT '',
+      banner_mime TEXT NOT NULL DEFAULT '',
+      banner_data TEXT NOT NULL DEFAULT ''
     );
 
     CREATE TABLE IF NOT EXISTS messages (
@@ -143,6 +162,7 @@ async function initDatabase() {
   ensureMessageIvColumn(db);
   ensureMessageRoomColumn(db);
   ensureUserAvatarColumns(db);
+  ensureUserProfileColumns(db);
   cleanupOldMessages(db);
 
   saveDb(db);
@@ -173,7 +193,7 @@ function ensureChatSettings(db) {
 function getUserFromCookie(db, req) {
   const id = req.signedCookies.user_id;
   if (!id) return null;
-  return dbGet(db, "SELECT id, username, avatar_mime, avatar_data FROM users WHERE id = ?", [id]);
+  return dbGet(db, "SELECT id, username, avatar_mime, avatar_data, description, banner_mime, banner_data FROM users WHERE id = ?", [id]);
 }
 
 module.exports = {
