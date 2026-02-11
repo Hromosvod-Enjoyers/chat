@@ -198,6 +198,22 @@ header .action {
   word-break: break-word;
 }
 
+.mention {
+  display: inline-block;
+  padding: 2px 6px;
+  margin: 0 1px;
+  border-radius: 999px;
+  background: rgba(69, 214, 255, 0.18);
+  color: var(--accent-3);
+  font-weight: 600;
+  font-size: 0.95em;
+}
+
+.mention-self {
+  background: rgba(255, 200, 87, 0.25);
+  color: #1b1412;
+}
+
 .status {
   font-size: 13px;
   color: var(--ink-2);

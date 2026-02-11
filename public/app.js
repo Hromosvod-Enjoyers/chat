@@ -218,6 +218,30 @@ const authSection = document.getElementById("auth-section");
     }
     }
 
+    function renderTextWithMentions(target, text) {
+    target.textContent = "";
+    if (!text) return;
+    const regex = /@([a-zA-Z0-9_-]+)/g;
+    let lastIndex = 0;
+    let match;
+    while ((match = regex.exec(text)) !== null) {
+        if (match.index > lastIndex) {
+        target.appendChild(document.createTextNode(text.slice(lastIndex, match.index)));
+        }
+        const span = document.createElement("span");
+        span.className = "mention";
+        if (currentUser && match[1] === currentUser.username) {
+        span.classList.add("mention-self");
+        }
+        span.textContent = `@${match[1]}`;
+        target.appendChild(span);
+        lastIndex = match.index + match[0].length;
+    }
+    if (lastIndex < text.length) {
+        target.appendChild(document.createTextNode(text.slice(lastIndex)));
+    }
+    }
+
     function base64ToArrayBuffer(base64) {
     const binaryString = atob(base64);
     const len = binaryString.length;
@@ -682,7 +706,7 @@ const authSection = document.getElementById("auth-section");
         imgEl.alt = "GIF";
         messageDiv.appendChild(imgEl);
         } else {
-        messageDiv.textContent = item.text;
+        renderTextWithMentions(messageDiv, item.text);
         }
 
         line.appendChild(userZone);
