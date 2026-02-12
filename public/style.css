@@ -418,6 +418,22 @@ header .action {
   .chat-line {
     grid-template-columns: 1fr;
   }
+
+  .profile-avatar-block {
+    order: 1;
+  }
+
+  .profile-color-block {
+    order: 2;
+  }
+
+  .profile-desc-block {
+    order: 3;
+  }
+
+  .profile-banner-block {
+    order: 4;
+  }
 }
 
 #chat-form {
@@ -621,6 +637,12 @@ button.bt2n {
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+.profile-block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .modal-body label {

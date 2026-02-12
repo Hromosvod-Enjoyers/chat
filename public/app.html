@@ -33,21 +33,29 @@
           <button class="modal-close">&times;</button>
         </div>
         <div class="modal-body">
-          <label>Profile Picture</label>
-          <div class="avatar-upload-zone">
-            <img id="profile-avatar-preview" class="avatar" src="" alt="Avatar preview" />
-            <input type="file" id="profile-avatar-input" accept="image/*" />
-            <button type="button" id="profile-avatar-btn" class="modal-btn">Upload Avatar</button>
+          <div class="profile-block profile-avatar-block">
+            <label>Profile Picture</label>
+            <div class="avatar-upload-zone">
+              <img id="profile-avatar-preview" class="avatar" src="" alt="Avatar preview" />
+              <input type="file" id="profile-avatar-input" accept="image/*" />
+              <button type="button" id="profile-avatar-btn" class="modal-btn">Upload Avatar</button>
+            </div>
           </div>
-          <label>Profile Color</label>
-          <div id="profile-colors" class="profile-colors"></div>
-          <label for="profile-description">Description</label>
-          <textarea id="profile-description" maxlength="500" placeholder="Tell others about yourself..."></textarea>
-          <label>Banner Image</label>
-          <div class="banner-upload-zone">
-            <input type="file" id="banner-input" accept="image/*" />
-            <div id="banner-preview"></div>
-            <button type="button" id="banner-upload-btn" class="modal-btn">Upload Banner</button>
+          <div class="profile-block profile-color-block">
+            <label>Profile Color</label>
+            <div id="profile-colors" class="profile-colors"></div>
+          </div>
+          <div class="profile-block profile-desc-block">
+            <label for="profile-description">Description</label>
+            <textarea id="profile-description" maxlength="500" placeholder="Tell others about yourself..."></textarea>
+          </div>
+          <div class="profile-block profile-banner-block">
+            <label>Banner Image</label>
+            <div class="banner-upload-zone">
+              <input type="file" id="banner-input" accept="image/*" />
+              <div id="banner-preview"></div>
+              <button type="button" id="banner-upload-btn" class="modal-btn">Upload Banner</button>
+            </div>
           </div>
           <button type="button" id="profile-save-btn" class="modal-btn modal-btn-primary">Save</button>
         </div>
