@@ -370,6 +370,15 @@ const authSection = document.getElementById("auth-section");
     userZone.appendChild(userWrap);
     userZone.appendChild(timeSpan);
 
+    const replyBtn = document.createElement("button");
+    replyBtn.className = "reply-btn";
+    replyBtn.innerHTML = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" fill=\"currentColor\" viewBox=\"0 0 16 16\"><path fill-rule=\"evenodd\" d=\"M1.5 1.5A.5.5 0 0 0 1 2v4.8a2.5 2.5 0 0 0 2.5 2.5h9.793l-3.347 3.346a.5.5 0 0 0 .708.708l4.2-4.2a.5.5 0 0 0 0-.708l-4-4a.5.5 0 0 0-.708.708L13.293 8.3H3.5A1.5 1.5 0 0 1 2 6.8V2a.5.5 0 0 0-.5-.5\"/></svg>";
+    replyBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        createReply(item);
+    });
+    userZone.appendChild(replyBtn);
+
     if (canDelete && item.id != null) {
         const deleteBtn = document.createElement("button");
         deleteBtn.className = "delete-btn";
@@ -380,6 +389,29 @@ const authSection = document.getElementById("auth-section");
 
     const messageDiv = document.createElement("div");
     messageDiv.className = "message";
+    
+    // Handle reply-to if present
+    if (item.reply_to_id && item.reply_to_username && item.reply_to_text) {
+        const replyPreview = document.createElement("div");
+        replyPreview.className = "reply-preview";
+        replyPreview.setAttribute("data-reply-to", item.reply_to_id);
+        
+        const replyHeader = document.createElement("div");
+        replyHeader.className = "reply-header";
+        replyHeader.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M1.5 1.5A.5.5 0 0 0 1 2v4.8a2.5 2.5 0 0 0 2.5 2.5h9.793l-3.347 3.346a.5.5 0 0 0 .708.708l4.2-4.2a.5.5 0 0 0 0-.708l-4-4a.5.5 0 0 0-.708.708L13.293 8.3H3.5A1.5 1.5 0 0 1 2 6.8V2a.5.5 0 0 0-.5-.5"/></svg> <span>${item.reply_to_username}</span>`;
+        
+        const replyText = document.createElement("div");
+        replyText.className = "reply-text";
+        replyText.textContent = item.reply_to_text.length > 80 ? item.reply_to_text.substring(0, 80) + "..." : item.reply_to_text;
+        
+        replyPreview.appendChild(replyHeader);
+        replyPreview.appendChild(replyText);
+        
+        replyPreview.addEventListener("click", () => scrollToMessage(item.reply_to_id));
+        
+        messageDiv.appendChild(replyPreview);
+    }
+    const textDiv = document.createElement("div");
     const gifUrl = await getGifUrlForMessage(item.text || "");
     if (gifUrl) {
         const imgEl = document.createElement("img");
@@ -387,15 +419,79 @@ const authSection = document.getElementById("auth-section");
         imgEl.loading = "lazy";
         imgEl.src = gifUrl;
         imgEl.alt = "GIF";
-        messageDiv.appendChild(imgEl);
+        textDiv.appendChild(imgEl);
     } else {
-        renderTextWithMentions(messageDiv, item.text || "");
+        renderTextWithMentions(textDiv, item.text || "");
     }
+    messageDiv.appendChild(textDiv);
 
     line.appendChild(userZone);
     line.appendChild(messageDiv);
     return line;
     }
+
+    function scrollToMessage(messageId) {
+        const targetLine = chatLog.querySelector(`[data-message-id="${messageId}"]`);
+        if (targetLine) {
+            targetLine.scrollIntoView({ behavior: "smooth", block: "center" });
+            targetLine.style.transition = "background-color 0.3s ease";
+            targetLine.style.backgroundColor = "rgba(255, 122, 89, 0.15)";
+            setTimeout(() => {
+                targetLine.style.backgroundColor = "";
+            }, 2000);
+        }
+    }
+
+    function createReply(item) {
+        if (!item || !item.id) return;
+        const chatInput = document.getElementById("chat-input");
+        if (!chatInput) return;
+        
+        // Store reply data for sending
+        chatInput.setAttribute("data-reply-to-id", item.id);
+        chatInput.setAttribute("data-reply-to-username", item.username || "");
+        chatInput.setAttribute("data-reply-to-text", (item.text || "").substring(0, 100));
+        
+        // Show reply indicator
+        let replyIndicator = document.getElementById("reply-indicator");
+        if (!replyIndicator) {
+            replyIndicator = document.createElement("div");
+            replyIndicator.id = "reply-indicator";
+            replyIndicator.className = "reply-indicator";
+            const chatForm = document.getElementById("chat-form");
+            chatForm.parentElement.insertBefore(replyIndicator, chatForm);
+        }
+        
+        const replyText = (item.text || "").length > 50 ? (item.text || "").substring(0, 50) + "..." : (item.text || "");
+        replyIndicator.innerHTML = `
+            <div class="reply-indicator-content">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M1.5 1.5A.5.5 0 0 0 1 2v4.8a2.5 2.5 0 0 0 2.5 2.5h9.793l-3.347 3.346a.5.5 0 0 0 .708.708l4.2-4.2a.5.5 0 0 0 0-.708l-4-4a.5.5 0 0 0-.708.708L13.293 8.3H3.5A1.5 1.5 0 0 1 2 6.8V2a.5.5 0 0 0-.5-.5"/></svg>
+                <div>
+                    <div class="reply-to-user">Replying to ${item.username || "user"}</div>
+                    <div class="reply-to-text">${replyText}</div>
+                </div>
+            </div>
+            <button class="reply-cancel" onclick="cancelReply()">×</button>
+        `;
+        replyIndicator.style.display = "flex";
+        
+        chatInput.focus();
+    }
+
+    window.cancelReply = function() {
+        const chatInput = document.getElementById("chat-input");
+        const replyIndicator = document.getElementById("reply-indicator");
+        
+        if (chatInput) {
+            chatInput.removeAttribute("data-reply-to-id");
+            chatInput.removeAttribute("data-reply-to-username");
+            chatInput.removeAttribute("data-reply-to-text");
+        }
+        
+        if (replyIndicator) {
+            replyIndicator.style.display = "none";
+        }
+    };
 
     async function appendUserMessageLine(item) {
     if (!chatLog || !item) return null;
@@ -466,6 +562,15 @@ const authSection = document.getElementById("auth-section");
 
     userZone.appendChild(userWrap);
     userZone.appendChild(timeSpan);
+
+    const replyBtn = document.createElement("button");
+    replyBtn.className = "reply-btn";
+    replyBtn.innerHTML = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" fill=\"currentColor\" viewBox=\"0 0 16 16\"><path fill-rule=\"evenodd\" d=\"M1.5 1.5A.5.5 0 0 0 1 2v4.8a2.5 2.5 0 0 0 2.5 2.5h9.793l-3.347 3.346a.5.5 0 0 0 .708.708l4.2-4.2a.5.5 0 0 0 0-.708l-4-4a.5.5 0 0 0-.708.708L13.293 8.3H3.5A1.5 1.5 0 0 1 2 6.8V2a.5.5 0 0 0-.5-.5\"/></svg>";
+    replyBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        createReply({ ...item, text: "[Image/File]" });
+    });
+    userZone.appendChild(replyBtn);
 
     if (canDelete && item.id != null) {
         const deleteBtn = document.createElement("button");
@@ -924,7 +1029,10 @@ const authSection = document.getElementById("auth-section");
         banner_data: msg.banner_data,
         profile_color: msg.profile_color,
         createdAt: msg.created_at,
-        text
+        text,
+        reply_to_id: msg.reply_to_id,
+        reply_to_username: msg.reply_to_username,
+        reply_to_text: msg.reply_to_text
         });
     }
 
@@ -1028,6 +1136,15 @@ const authSection = document.getElementById("auth-section");
 
         userZone.appendChild(userWrap);
         userZone.appendChild(timeSpan);
+
+        const replyBtn = document.createElement("button");
+        replyBtn.className = "reply-btn";
+        replyBtn.innerHTML = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" fill=\"currentColor\" viewBox=\"0 0 16 16\"><path fill-rule=\"evenodd\" d=\"M1.5 1.5A.5.5 0 0 0 1 2v4.8a2.5 2.5 0 0 0 2.5 2.5h9.793l-3.347 3.346a.5.5 0 0 0 .708.708l4.2-4.2a.5.5 0 0 0 0-.708l-4-4a.5.5 0 0 0-.708.708L13.293 8.3H3.5A1.5 1.5 0 0 1 2 6.8V2a.5.5 0 0 0-.5-.5\"/></svg>";
+        replyBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            createReply({ ...item, text: "[Image/File]" });
+        });
+        userZone.appendChild(replyBtn);
 
         if (canDelete) {
             const deleteBtn = document.createElement("button");
@@ -1135,6 +1252,15 @@ const authSection = document.getElementById("auth-section");
         userZone.appendChild(userWrap);
         userZone.appendChild(timeSpan);
 
+        const replyBtn = document.createElement("button");
+        replyBtn.className = "reply-btn";
+        replyBtn.innerHTML = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" fill=\"currentColor\" viewBox=\"0 0 16 16\"><path fill-rule=\"evenodd\" d=\"M1.5 1.5A.5.5 0 0 0 1 2v4.8a2.5 2.5 0 0 0 2.5 2.5h9.793l-3.347 3.346a.5.5 0 0 0 .708.708l4.2-4.2a.5.5 0 0 0 0-.708l-4-4a.5.5 0 0 0-.708.708L13.293 8.3H3.5A1.5 1.5 0 0 1 2 6.8V2a.5.5 0 0 0-.5-.5\"/></svg>";
+        replyBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            createReply(item);
+        });
+        userZone.appendChild(replyBtn);
+
         if (canDelete) {
         const deleteBtn = document.createElement("button");
         deleteBtn.className = "delete-btn";
@@ -1145,6 +1271,30 @@ const authSection = document.getElementById("auth-section");
 
         const messageDiv = document.createElement("div");
         messageDiv.className = "message";
+        
+        // Handle reply-to if present
+        if (item.reply_to_id && item.reply_to_username && item.reply_to_text) {
+            const replyPreview = document.createElement("div");
+            replyPreview.className = "reply-preview";
+            replyPreview.setAttribute("data-reply-to", item.reply_to_id);
+            
+            const replyHeader = document.createElement("div");
+            replyHeader.className = "reply-header";
+            replyHeader.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M1.5 1.5A.5.5 0 0 0 1 2v4.8a2.5 2.5 0 0 0 2.5 2.5h9.793l-3.347 3.346a.5.5 0 0 0 .708.708l4.2-4.2a.5.5 0 0 0 0-.708l-4-4a.5.5 0 0 0-.708.708L13.293 8.3H3.5A1.5 1.5 0 0 1 2 6.8V2a.5.5 0 0 0-.5-.5"/></svg> <span>${item.reply_to_username}</span>`;
+            
+            const replyText = document.createElement("div");
+            replyText.className = "reply-text";
+            replyText.textContent = item.reply_to_text.length > 80 ? item.reply_to_text.substring(0, 80) + "..." : item.reply_to_text;
+            
+            replyPreview.appendChild(replyHeader);
+            replyPreview.appendChild(replyText);
+            
+            replyPreview.addEventListener("click", () => scrollToMessage(item.reply_to_id));
+            
+            messageDiv.appendChild(replyPreview);
+        }
+        
+        const textDiv = document.createElement("div");
         const gifUrl = await getGifUrlForMessage(item.text);
         if (gifUrl) {
         const imgEl = document.createElement("img");
@@ -1152,10 +1302,11 @@ const authSection = document.getElementById("auth-section");
         imgEl.loading = "lazy";
         imgEl.src = gifUrl;
         imgEl.alt = "GIF";
-        messageDiv.appendChild(imgEl);
+        textDiv.appendChild(imgEl);
         } else {
-        renderTextWithMentions(messageDiv, item.text);
+        renderTextWithMentions(textDiv, item.text);
         }
+        messageDiv.appendChild(textDiv);
 
         line.appendChild(userZone);
         line.appendChild(messageDiv);
@@ -1249,7 +1400,10 @@ const authSection = document.getElementById("auth-section");
                 banner_data: payload.message.banner_data,
                 profile_color: payload.message.profile_color,
                 createdAt: payload.message.created_at,
-                text
+                text,
+                reply_to_id: payload.message.reply_to_id,
+                reply_to_username: payload.message.reply_to_username,
+                reply_to_text: payload.message.reply_to_text
             });
             lastRenderedCount += 1;
             lastSeenCount += 1;
@@ -1503,6 +1657,11 @@ const authSection = document.getElementById("auth-section");
         const message = input.value.trim();
         if (!message) return;
 
+        // Get reply data if present
+        const replyToId = input.getAttribute("data-reply-to-id");
+        const replyToUsername = input.getAttribute("data-reply-to-username");
+        const replyToText = input.getAttribute("data-reply-to-text");
+
         setStatus(chatStatus, "Sending...");
         const pendingLine = await appendUserMessageLine({
         kind: "user",
@@ -1515,13 +1674,28 @@ const authSection = document.getElementById("auth-section");
         banner_data: currentUser.banner_data,
         profile_color: currentUser.profile_color,
         createdAt: new Date().toISOString(),
-        text: message
+        text: message,
+        reply_to_id: replyToId,
+        reply_to_username: replyToUsername,
+        reply_to_text: replyToText
         });
         const encrypted = await encryptMessage(message);
+        
+        // Include reply data in request
+        const requestData = { 
+            ...encrypted, 
+            roomId
+        };
+        if (replyToId) {
+            requestData.reply_to_id = replyToId;
+            requestData.reply_to_username = replyToUsername;
+            requestData.reply_to_text = replyToText;
+        }
+        
         const res = await fetch("/api/messages", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...encrypted, roomId })
+        body: JSON.stringify(requestData)
         });
         const payload = await res.json().catch(() => ({}));
         if (!res.ok) {
@@ -1533,6 +1707,7 @@ const authSection = document.getElementById("auth-section");
         return;
         }
         input.value = "";
+        cancelReply(); // Clear reply indicator
         setStatus(chatStatus, "Sent");
         const serverMessage = payload.message || {};
         const createdAt = serverMessage.created_at || new Date().toISOString();

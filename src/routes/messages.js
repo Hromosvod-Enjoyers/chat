@@ -24,7 +24,8 @@ function createMessagesRouter({
     const rows = dbAll(
       db,
       `
-        SELECT m.id, m.room_id, m.iv, m.ciphertext, m.created_at, u.username, u.avatar_mime, u.avatar_data, u.description, u.banner_mime, u.banner_data, u.profile_color
+        SELECT m.id, m.room_id, m.iv, m.ciphertext, m.created_at, m.reply_to_id, m.reply_to_username, m.reply_to_text,
+               u.username, u.avatar_mime, u.avatar_data, u.description, u.banner_mime, u.banner_data, u.profile_color
         FROM messages m
         JOIN users u ON u.id = m.user_id
         WHERE m.room_id = ?
@@ -52,7 +53,8 @@ function createMessagesRouter({
     const user = getUserFromCookie(db, req);
     if (!user) return res.status(401).json({ error: "Login required" });
 
-    const { ciphertext, iv, roomId } = req.body || {};
+    const { ciphertext, iv, roomId, reply_to_id, reply_to_username, reply_to_text } = req.body || {};
+    
     if (
       !ciphertext ||
       typeof ciphertext !== "string" ||
@@ -70,17 +72,32 @@ function createMessagesRouter({
 
     try {
       cleanupOldMessages(db);
-      dbRun(db, "INSERT INTO messages (user_id, room_id, iv, ciphertext) VALUES (?, ?, ?, ?)", [
-        user.id,
-        roomId,
-        iv,
-        ciphertext
-      ]);
+      
+      // Insert with reply data if present
+      if (reply_to_id) {
+        dbRun(db, "INSERT INTO messages (user_id, room_id, iv, ciphertext, reply_to_id, reply_to_username, reply_to_text) VALUES (?, ?, ?, ?, ?, ?, ?)", [
+          user.id,
+          roomId,
+          iv,
+          ciphertext,
+          reply_to_id,
+          reply_to_username || "",
+          reply_to_text || ""
+        ]);
+      } else {
+        dbRun(db, "INSERT INTO messages (user_id, room_id, iv, ciphertext) VALUES (?, ?, ?, ?)", [
+          user.id,
+          roomId,
+          iv,
+          ciphertext
+        ]);
+      }
 
       let row = dbGet(
         db,
         `
-          SELECT m.id, m.room_id, m.iv, m.ciphertext, m.created_at, u.username, u.avatar_mime, u.avatar_data, u.description, u.banner_mime, u.banner_data, u.profile_color
+          SELECT m.id, m.room_id, m.iv, m.ciphertext, m.created_at, m.reply_to_id, m.reply_to_username, m.reply_to_text,
+                 u.username, u.avatar_mime, u.avatar_data, u.description, u.banner_mime, u.banner_data, u.profile_color
           FROM messages m
           JOIN users u ON u.id = m.user_id
           WHERE m.id = (SELECT last_insert_rowid())
@@ -91,7 +108,8 @@ function createMessagesRouter({
         row = dbGet(
           db,
           `
-            SELECT m.id, m.room_id, m.iv, m.ciphertext, m.created_at, u.username, u.avatar_mime, u.avatar_data, u.description, u.banner_mime, u.banner_data, u.profile_color
+            SELECT m.id, m.room_id, m.iv, m.ciphertext, m.created_at, m.reply_to_id, m.reply_to_username, m.reply_to_text,
+                   u.username, u.avatar_mime, u.avatar_data, u.description, u.banner_mime, u.banner_data, u.profile_color
             FROM messages m
             JOIN users u ON u.id = m.user_id
             WHERE m.user_id = ? AND m.room_id = ?

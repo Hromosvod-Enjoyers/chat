@@ -96,6 +96,23 @@ function ensureUserColorColumn(db) {
   }
 }
 
+function ensureMessageReplyColumns(db) {
+  const columns = dbAll(db, "PRAGMA table_info(messages)");
+  const hasReplyToId = columns.some((col) => col.name === "reply_to_id");
+  const hasReplyToUsername = columns.some((col) => col.name === "reply_to_username");
+  const hasReplyToText = columns.some((col) => col.name === "reply_to_text");
+  
+  if (!hasReplyToId) {
+    dbRun(db, "ALTER TABLE messages ADD COLUMN reply_to_id INTEGER DEFAULT NULL");
+  }
+  if (!hasReplyToUsername) {
+    dbRun(db, "ALTER TABLE messages ADD COLUMN reply_to_username TEXT DEFAULT ''");
+  }
+  if (!hasReplyToText) {
+    dbRun(db, "ALTER TABLE messages ADD COLUMN reply_to_text TEXT DEFAULT ''");
+  }
+}
+
 function cleanupOldMessages(db) {
   dbRun(db, "DELETE FROM messages WHERE created_at < datetime('now', '-90 days')");
 }
@@ -173,6 +190,7 @@ async function initDatabase() {
   ensureUserAvatarColumns(db);
   ensureUserProfileColumns(db);
   ensureUserColorColumn(db);
+  ensureMessageReplyColumns(db);
   cleanupOldMessages(db);
 
   saveDb(db);

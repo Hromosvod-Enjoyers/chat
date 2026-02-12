@@ -271,6 +271,117 @@ header .action {
   border: 1.5px solid rgba(69, 214, 255, 0.4);
 }
 
+.reply-btn {
+  background: rgba(69, 214, 255, 0.1);
+  border: 1px solid rgba(69, 214, 255, 0.3);
+  color: var(--accent-3);
+  cursor: pointer;
+  padding: 6px 8px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.chat-line:hover .reply-btn {
+  background: rgba(69, 214, 255, 0.2);
+  border-color: var(--accent-3);
+}
+
+.reply-btn:hover {
+  background: rgba(69, 214, 255, 0.25);
+  transform: translateY(-1px);
+}
+
+.reply-btn svg {
+  width: 16px;
+  height: 16px;
+  display: block;
+}
+
+.reply-preview {
+  margin-bottom: 8px;
+  padding: 8px 12px;
+  background: rgba(69, 214, 255, 0.08);
+  border-left: 3px solid var(--accent-3);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.reply-preview:hover {
+  background: rgba(69, 214, 255, 0.15);
+  border-left-color: var(--accent-2);
+}
+
+.reply-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--accent-3);
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.reply-text {
+  font-size: 13px;
+  color: var(--ink-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reply-indicator {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  background: rgba(69, 214, 255, 0.08);
+  border-left: 3px solid var(--accent-3);
+  border-radius: 6px;
+  margin-bottom: 12px;
+}
+
+.reply-indicator-content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+}
+
+.reply-to-user {
+  font-size: 12px;
+  color: var(--accent-3);
+  font-weight: 600;
+}
+
+.reply-to-text {
+  font-size: 13px;
+  color: var(--ink-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reply-cancel {
+  background: none;
+  border: none;
+  color: var(--ink-2);
+  font-size: 24px;
+  cursor: pointer;
+  padding: 0 8px;
+  line-height: 1;
+  transition: color 0.2s ease;
+}
+
+.reply-cancel:hover {
+  color: var(--danger);
+}
+
 .status {
   font-size: 13px;
   color: var(--ink-2);
