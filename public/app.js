@@ -8,6 +8,7 @@ const authSection = document.getElementById("auth-section");
     const releaseBtn = document.getElementById("release-btn");
     const chatLog = document.getElementById("chat-log");
     const page = document.body?.dataset?.page || "";
+    const AUTH_BASE = "/api/auth";
 
     let chatKey = null;
     let currentUser = null;
@@ -429,7 +430,7 @@ const authSection = document.getElementById("auth-section");
         }
         setStatus(chatStatus, "Uploading avatar...");
         const data = arrayBufferToBase64(buffer);
-        const res = await fetch("/auth/avatar", {
+        const res = await fetch(`${AUTH_BASE}/avatar`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mime, data })
@@ -814,7 +815,7 @@ const authSection = document.getElementById("auth-section");
     }
 
     async function bootstrap() {
-    const res = await fetch("/auth/me");
+    const res = await fetch(`${AUTH_BASE}/me`);
     const data = await res.json();
     currentUser = data.user;
     masterUnlocked = Boolean(chatKey);
@@ -899,7 +900,7 @@ const authSection = document.getElementById("auth-section");
         setStatus(authStatus, "Checking account...");
         const username = document.getElementById("auth-username").value;
         const password = document.getElementById("auth-password").value;
-        const res = await fetch("/auth/enter", {
+        const res = await fetch(`${AUTH_BASE}/enter`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password })
@@ -929,7 +930,7 @@ const authSection = document.getElementById("auth-section");
     });
 
     if (logoutBtn) logoutBtn.addEventListener("click", async () => {
-        await fetch("/auth/logout", { method: "POST" });
+        await fetch(`${AUTH_BASE}/logout`, { method: "POST" });
         currentUser = null;
         masterUnlocked = false;
         chatKey = null;
@@ -953,7 +954,7 @@ const authSection = document.getElementById("auth-section");
         const confirmRelease = confirm('Are you sure you want to release your username?');
         if (!confirmRelease) return;
         if (!currentUser) return;
-        const res = await fetch("/auth/release", { method: "POST" });
+        const res = await fetch(`${AUTH_BASE}/release`, { method: "POST" });
         if (!res.ok) {
         let errorText = "Release failed";
         try {
@@ -1190,7 +1191,7 @@ const authSection = document.getElementById("auth-section");
                 updates.color = pendingProfileColor;
             }
             setStatus(chatStatus, "Saving profile...");
-            const res = await fetch("/auth/profile", {
+            const res = await fetch(`${AUTH_BASE}/profile`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(updates)

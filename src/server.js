@@ -42,6 +42,16 @@ async function main() {
   );
 
   app.use(
+    "/api/auth",
+    createAuthRouter({
+      db,
+      dbGet,
+      dbRun,
+      getUserFromCookie
+    })
+  );
+
+  app.use(
     "/api",
     createMessagesRouter({
       db,
