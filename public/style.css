@@ -419,6 +419,12 @@ header .action {
     grid-template-columns: 1fr;
   }
 
+  .message img.chat-image,
+  .message video.chat-video {
+    max-width: 100%;
+    height: auto;
+  }
+
   .profile-avatar-block {
     order: 1;
   }
