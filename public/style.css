@@ -309,6 +309,7 @@ header .action {
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s ease;
+  user-select: none;
 }
 
 .reply-preview:hover {

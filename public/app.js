@@ -407,7 +407,10 @@ const authSection = document.getElementById("auth-section");
         replyPreview.appendChild(replyHeader);
         replyPreview.appendChild(replyText);
         
-        replyPreview.addEventListener("click", () => scrollToMessage(item.reply_to_id));
+        replyPreview.addEventListener("click", (e) => {
+            e.stopPropagation();
+            scrollToMessage(String(item.reply_to_id));
+        });
         
         messageDiv.appendChild(replyPreview);
     }
@@ -431,15 +434,15 @@ const authSection = document.getElementById("auth-section");
     }
 
     function scrollToMessage(messageId) {
+        if (!chatLog || !messageId) return;
         const targetLine = chatLog.querySelector(`[data-message-id="${messageId}"]`);
-        if (targetLine) {
-            targetLine.scrollIntoView({ behavior: "smooth", block: "center" });
-            targetLine.style.transition = "background-color 0.3s ease";
-            targetLine.style.backgroundColor = "rgba(255, 122, 89, 0.15)";
-            setTimeout(() => {
-                targetLine.style.backgroundColor = "";
-            }, 2000);
-        }
+        if (!targetLine) return;
+        targetLine.scrollIntoView({ behavior: "smooth", block: "center" });
+        targetLine.style.transition = "background-color 0.3s ease";
+        targetLine.style.backgroundColor = "rgba(255, 122, 89, 0.15)";
+        setTimeout(() => {
+            targetLine.style.backgroundColor = "";
+        }, 2000);
     }
 
     function createReply(item) {
@@ -511,6 +514,7 @@ const authSection = document.getElementById("auth-section");
     if (!item) return null;
     const line = document.createElement("div");
     line.className = "chat-line";
+    if (item.id != null) line.setAttribute("data-message-id", String(item.id));
     const canDelete = currentUser && item.username === currentUser.username;
     const avatarUrl = getAvatarUrl(item);
     const userColor = getProfileColor(item);
@@ -1085,6 +1089,7 @@ const authSection = document.getElementById("auth-section");
         if (item.kind === "image") {
         const line = document.createElement("div");
         line.className = "chat-line";
+        if (item.id != null) line.setAttribute("data-message-id", String(item.id));
         const canDelete = currentUser && item.username === currentUser.username;
         const avatarUrl = getAvatarUrl(item);
         const userColor = getProfileColor(item);
@@ -1211,6 +1216,7 @@ const authSection = document.getElementById("auth-section");
 
         const line = document.createElement("div");
         line.className = "chat-line";
+        if (item.id != null) line.setAttribute("data-message-id", String(item.id));
         const canDelete = currentUser && item.username === currentUser.username;
         const avatarUrl = getAvatarUrl(item);
 
@@ -1289,7 +1295,10 @@ const authSection = document.getElementById("auth-section");
             replyPreview.appendChild(replyHeader);
             replyPreview.appendChild(replyText);
             
-            replyPreview.addEventListener("click", () => scrollToMessage(item.reply_to_id));
+            replyPreview.addEventListener("click", (e) => {
+                e.stopPropagation();
+                scrollToMessage(String(item.reply_to_id));
+            });
             
             messageDiv.appendChild(replyPreview);
         }
