@@ -811,6 +811,11 @@ const authSection = document.getElementById("auth-section");
     return btoa(binary);
     }
 
+    async function hashToBase64(data) {
+    const digest = await crypto.subtle.digest("SHA-256", data);
+    return arrayBufferToBase64(digest);
+    }
+
     function concatUint8(a, b) {
     const out = new Uint8Array(a.length + b.length);
     out.set(a, 0);
@@ -827,7 +832,8 @@ const authSection = document.getElementById("auth-section");
     }
 
 
-    async function deriveKey(passphrase, saltBase64, iterations) {
+    async function deriveKey(passphrase, saltBase64, opslimit) {
+    const iterations = Math.max(150000, Number(opslimit || 0) * 150000);
     const passphraseKey = await crypto.subtle.importKey(
         "raw",
         textEncoder.encode(passphrase),
@@ -850,27 +856,9 @@ const authSection = document.getElementById("auth-section");
     );
     }
 
-    async function deriveRoomId(passphrase, saltBase64, iterations) {
-    const passphraseKey = await crypto.subtle.importKey(
-        "raw",
-        textEncoder.encode(passphrase),
-        { name: "PBKDF2" },
-        false,
-        ["deriveBits"]
-    );
-    const salt = new Uint8Array(base64ToArrayBuffer(saltBase64));
-    const saltWithLabel = concatUint8(salt, textEncoder.encode("room"));
-    const bits = await crypto.subtle.deriveBits(
-        {
-        name: "PBKDF2",
-        salt: saltWithLabel,
-        iterations,
-        hash: "SHA-256"
-        },
-        passphraseKey,
-        256
-    );
-    return arrayBufferToBase64(bits);
+    async function deriveRoomId(passphrase) {
+    const data = textEncoder.encode(`${passphrase}:room`);
+    return hashToBase64(data);
     }
 
     async function encryptMessage(message) {
@@ -1018,9 +1006,9 @@ const authSection = document.getElementById("auth-section");
     }
     }
 
-    async function loadChatSettings() {
-    const res = await fetch("/api/chat-settings");
-    if (!res.ok) throw new Error("Unable to load chat settings");
+    async function loadRoomSettings(roomId) {
+    const res = await fetch(`/api/room-settings?roomId=${encodeURIComponent(roomId)}`);
+    if (!res.ok) throw new Error("Unable to load room settings");
     return res.json();
     }
 
@@ -1539,9 +1527,9 @@ const authSection = document.getElementById("auth-section");
     const savedPass = getLocalKey();
     if (savedPass) {
         try {
-        chatSettings = await loadChatSettings();
-        chatKey = await deriveKey(savedPass, chatSettings.salt, chatSettings.iterations);
-        roomId = await deriveRoomId(savedPass, chatSettings.salt, chatSettings.iterations);
+        roomId = await deriveRoomId(savedPass);
+        chatSettings = await loadRoomSettings(roomId);
+        chatKey = await deriveKey(savedPass, chatSettings.salt, chatSettings.opslimit, chatSettings.memlimit);
         masterUnlocked = true;
         if (page === "login" && currentUser) {
             location.replace("/app.html");

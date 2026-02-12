@@ -7,6 +7,9 @@ const DATA_DIR = path.join(process.cwd(), "data");
 const DB_PATH = path.join(DATA_DIR, "chat.db");
 const LARGE_IMAGE_BYTES = 1024 * 1024;
 const LARGE_IMAGE_KEEP = 30;
+const ROOM_SALT_BYTES = 16;
+const ARGON2_OPSLIMIT = 2;
+const ARGON2_MEMLIMIT = 64 * 1024 * 1024;
 
 if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -204,6 +207,12 @@ async function initDatabase() {
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS rooms (
+      room_id TEXT PRIMARY KEY,
+      salt TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `);
 
   ensureMessageIvColumn(db);
@@ -219,24 +228,18 @@ async function initDatabase() {
   return db;
 }
 
-function ensureChatSettings(db) {
-  const storedSalt = dbGet(db, "SELECT value FROM settings WHERE key = 'chat_salt'");
-  const storedIterations = dbGet(db, "SELECT value FROM settings WHERE key = 'kdf_iterations'");
-
-  if (!storedSalt) {
-    const salt = crypto.randomBytes(16).toString("base64");
-    dbRun(db, "INSERT OR REPLACE INTO settings (key, value) VALUES ('chat_salt', ?)", [salt]);
+function getRoomSettings(db, roomId) {
+  if (!roomId) return null;
+  let row = dbGet(db, "SELECT salt FROM rooms WHERE room_id = ?", [roomId]);
+  if (!row) {
+    const salt = crypto.randomBytes(ROOM_SALT_BYTES).toString("base64");
+    dbRun(db, "INSERT OR REPLACE INTO rooms (room_id, salt) VALUES (?, ?)", [roomId, salt]);
+    row = { salt };
   }
-
-  if (!storedIterations) {
-    dbRun(db, "INSERT OR REPLACE INTO settings (key, value) VALUES ('kdf_iterations', ?)", [
-      "150000"
-    ]);
-  }
-
   return {
-    salt: dbGet(db, "SELECT value FROM settings WHERE key = 'chat_salt'").value,
-    iterations: Number(dbGet(db, "SELECT value FROM settings WHERE key = 'kdf_iterations'").value)
+    salt: row.salt,
+    opslimit: ARGON2_OPSLIMIT,
+    memlimit: ARGON2_MEMLIMIT
   };
 }
 
@@ -268,7 +271,7 @@ function deleteUserSessions(db, userId) {
 
 module.exports = {
   initDatabase,
-  ensureChatSettings,
+  getRoomSettings,
   cleanupOldMessages,
   cleanupOldImages,
   dbGet,

@@ -8,14 +8,17 @@ function createMessagesRouter({
   cleanupOldMessages,
   cleanupOldImages,
   getUserFromCookie,
-  ensureChatSettings,
+  getRoomSettings,
   broadcastToRoom
 }) {
   const router = express.Router();
 
-  router.get("/chat-settings", (req, res) => {
-    const settings = ensureChatSettings(db);
-    res.json({ salt: settings.salt, iterations: settings.iterations });
+  router.get("/room-settings", (req, res) => {
+    const roomId = typeof req.query.roomId === "string" ? req.query.roomId : "";
+    if (!roomId) return res.status(400).json({ error: "roomId required" });
+    const settings = getRoomSettings(db, roomId);
+    if (!settings) return res.status(500).json({ error: "Unable to load room settings" });
+    res.json({ salt: settings.salt, opslimit: settings.opslimit, memlimit: settings.memlimit });
   });
 
   router.get("/messages", (req, res) => {

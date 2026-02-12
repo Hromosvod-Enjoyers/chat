@@ -4,7 +4,7 @@ const express = require("express");
 const cookieParser = require("cookie-parser");
 const {
   initDatabase,
-  ensureChatSettings,
+  getRoomSettings,
   dbGet,
   dbAll,
   dbRun,
@@ -24,7 +24,6 @@ const COOKIE_SECRET = process.env.COOKIE_SECRET || "ufoheurghuierhu";
 
 async function main() {
   const db = await initDatabase();
-  ensureChatSettings(db);
 
   const app = express();
   app.use(express.json({ limit: "30mb" }));
@@ -70,7 +69,7 @@ async function main() {
       cleanupOldMessages,
       cleanupOldImages,
       getUserFromCookie,
-      ensureChatSettings,
+      getRoomSettings,
       broadcastToRoom
     })
   );
