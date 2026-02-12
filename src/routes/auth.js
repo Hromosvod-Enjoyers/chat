@@ -215,7 +215,7 @@ function createAuthRouter({ db, dbGet, dbRun, getUserFromCookie, createSession, 
     const user = getUserFromCookie(db, req);
     if (!user) return res.status(401).json({ error: "Login required" });
 
-    const { description, bannerMime, bannerData, color } = req.body || {};
+    const { description, bannerMime, bannerData, avatarMime, avatarData, color } = req.body || {};
     
     if (description !== undefined) {
       if (typeof description !== "string") {
@@ -248,6 +248,31 @@ function createAuthRouter({ db, dbGet, dbRun, getUserFromCookie, createSession, 
       dbRun(db, "UPDATE users SET banner_mime = ?, banner_data = ? WHERE id = ?", [
         bannerMime,
         bannerData,
+        user.id
+      ]);
+    }
+
+    if (avatarMime !== undefined && avatarData !== undefined) {
+      if (typeof avatarMime !== "string" || typeof avatarData !== "string") {
+        return res.status(400).json({ error: "Invalid avatar data" });
+      }
+      if (avatarMime && !avatarMime.startsWith("image/")) {
+        return res.status(400).json({ error: "Only image uploads allowed" });
+      }
+      if (avatarData) {
+        let buffer;
+        try {
+          buffer = Buffer.from(avatarData, "base64");
+        } catch (err) {
+          return res.status(400).json({ error: "Invalid avatar data" });
+        }
+        if (buffer.length > MAX_AVATAR_BYTES) {
+          return res.status(400).json({ error: "Avatar too large" });
+        }
+      }
+      dbRun(db, "UPDATE users SET avatar_mime = ?, avatar_data = ? WHERE id = ?", [
+        avatarMime,
+        avatarData,
         user.id
       ]);
     }
