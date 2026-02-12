@@ -10,7 +10,10 @@ const {
   dbRun,
   cleanupOldMessages,
   cleanupOldImages,
-  getUserFromCookie
+  getUserFromCookie,
+  createSession,
+  deleteSession,
+  deleteUserSessions
 } = require("./db");
 const { createAuthRouter } = require("./routes/auth");
 const { createMessagesRouter } = require("./routes/messages");
@@ -37,7 +40,10 @@ async function main() {
       db,
       dbGet,
       dbRun,
-      getUserFromCookie
+      getUserFromCookie,
+      createSession,
+      deleteSession,
+      deleteUserSessions
     })
   );
 
@@ -47,7 +53,10 @@ async function main() {
       db,
       dbGet,
       dbRun,
-      getUserFromCookie
+      getUserFromCookie,
+      createSession,
+      deleteSession,
+      deleteUserSessions
     })
   );
 

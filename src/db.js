@@ -158,6 +158,14 @@ async function initDatabase() {
       profile_color TEXT NOT NULL DEFAULT ''
     );
 
+    CREATE TABLE IF NOT EXISTS sessions (
+      id TEXT PRIMARY KEY,
+      user_id INTEGER NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      last_seen TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY(user_id) REFERENCES users(id)
+    );
+
     CREATE TABLE IF NOT EXISTS messages (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL,
@@ -219,9 +227,29 @@ function ensureChatSettings(db) {
 }
 
 function getUserFromCookie(db, req) {
-  const id = req.signedCookies.user_id;
-  if (!id) return null;
-  return dbGet(db, "SELECT id, username, avatar_mime, avatar_data, description, banner_mime, banner_data, profile_color FROM users WHERE id = ?", [id]);
+  const sessionId = req.signedCookies.session_id;
+  if (!sessionId) return null;
+  return dbGet(
+    db,
+    "SELECT u.id, u.username, u.avatar_mime, u.avatar_data, u.description, u.banner_mime, u.banner_data, u.profile_color FROM users u JOIN sessions s ON s.user_id = u.id WHERE s.id = ?",
+    [sessionId]
+  );
+}
+
+function createSession(db, userId) {
+  const sessionId = crypto.randomBytes(32).toString("base64url");
+  dbRun(db, "INSERT INTO sessions (id, user_id) VALUES (?, ?)", [sessionId, userId]);
+  return sessionId;
+}
+
+function deleteSession(db, sessionId) {
+  if (!sessionId) return;
+  dbRun(db, "DELETE FROM sessions WHERE id = ?", [sessionId]);
+}
+
+function deleteUserSessions(db, userId) {
+  if (!userId) return;
+  dbRun(db, "DELETE FROM sessions WHERE user_id = ?", [userId]);
 }
 
 module.exports = {
@@ -232,5 +260,8 @@ module.exports = {
   dbGet,
   dbAll,
   dbRun,
-  getUserFromCookie
+  getUserFromCookie,
+  createSession,
+  deleteSession,
+  deleteUserSessions
 };

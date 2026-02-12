@@ -22,10 +22,20 @@ function isValidUsername(username) {
   return /^[a-zA-Z0-9._]+$/.test(trimmed);
 }
 
-function createAuthRouter({ db, dbGet, dbRun, getUserFromCookie }) {
+function createAuthRouter({ db, dbGet, dbRun, getUserFromCookie, createSession, deleteSession, deleteUserSessions }) {
   const router = express.Router();
 
+  router.use((req, res, next) => {
+    res.set("Cache-Control", "no-store, max-age=0");
+    res.set("Pragma", "no-cache");
+    res.set("Vary", "Cookie");
+    next();
+  });
+
   router.post("/logout", (req, res) => {
+    const sessionId = req.signedCookies.session_id;
+    if (sessionId) deleteSession(db, sessionId);
+    res.clearCookie("session_id");
     res.clearCookie("user_id");
     res.json({ ok: true });
   });
@@ -33,7 +43,9 @@ function createAuthRouter({ db, dbGet, dbRun, getUserFromCookie }) {
   router.post("/release", (req, res) => {
     const user = getUserFromCookie(db, req);
     if (!user) return res.status(401).json({ error: "Login required" });
+    deleteUserSessions(db, user.id);
     dbRun(db, "DELETE FROM users WHERE id = ?", [user.id]);
+    res.clearCookie("session_id");
     res.clearCookie("user_id");
     res.json({ ok: true });
   });
@@ -66,7 +78,9 @@ function createAuthRouter({ db, dbGet, dbRun, getUserFromCookie }) {
         return res.status(500).json({ error: "Registration failed" });
       }
 
-      res.cookie("user_id", String(created.id), {
+      const sessionId = createSession(db, created.id);
+      res.clearCookie("user_id");
+      res.cookie("session_id", sessionId, {
         signed: true,
         httpOnly: true,
         sameSite: "lax",
@@ -93,7 +107,9 @@ function createAuthRouter({ db, dbGet, dbRun, getUserFromCookie }) {
     if (!user || !bcrypt.compareSync(password, user.password_hash)) {
       return res.status(401).json({ error: "Invalid credentials" });
     }
-    res.cookie("user_id", String(user.id), {
+    const sessionId = createSession(db, user.id);
+    res.clearCookie("user_id");
+    res.cookie("session_id", sessionId, {
       signed: true,
       httpOnly: true,
       sameSite: "lax",
@@ -119,7 +135,9 @@ function createAuthRouter({ db, dbGet, dbRun, getUserFromCookie }) {
       if (!bcrypt.compareSync(password, existing.password_hash)) {
         return res.status(401).json({ error: "Invalid credentials" });
       }
-      res.cookie("user_id", String(existing.id), {
+      const sessionId = createSession(db, existing.id);
+      res.clearCookie("user_id");
+      res.cookie("session_id", sessionId, {
         signed: true,
         httpOnly: true,
         sameSite: "lax",
@@ -146,7 +164,9 @@ function createAuthRouter({ db, dbGet, dbRun, getUserFromCookie }) {
       if (!created) {
         return res.status(500).json({ error: "Registration failed" });
       }
-      res.cookie("user_id", String(created.id), {
+      const sessionId = createSession(db, created.id);
+      res.clearCookie("user_id");
+      res.cookie("session_id", sessionId, {
         signed: true,
         httpOnly: true,
         sameSite: "lax",
