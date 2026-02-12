@@ -361,7 +361,7 @@ const authSection = document.getElementById("auth-section");
     const userSpan = document.createElement("span");
     userSpan.className = "user";
     userSpan.textContent = item.username || "";
-    const nameColor = (item.username === currentUser?.username) ? 'var(--accent-1)' : userColor;
+    const nameColor = userColor;
     userSpan.style.color = nameColor;
 
     userWrap.appendChild(avatar);
@@ -562,7 +562,7 @@ const authSection = document.getElementById("auth-section");
     const userSpan = document.createElement("span");
     userSpan.className = "user";
     userSpan.textContent = item.username || "";
-    const nameColor = (item.username === currentUser?.username) ? 'var(--accent-1)' : userColor;
+    const nameColor = userColor;
     userSpan.style.color = nameColor;
 
     userWrap.appendChild(avatar);
@@ -1128,7 +1128,7 @@ const authSection = document.getElementById("auth-section");
         const userSpan = document.createElement("span");
         userSpan.className = "user";
         userSpan.textContent = item.username;
-        const nameColor = (item.username === currentUser?.username) ? 'var(--accent-1)' : getProfileColor(item);
+        const nameColor = getProfileColor(item);
         userSpan.style.color = nameColor;
 
         userWrap.appendChild(avatar);
@@ -1247,7 +1247,7 @@ const authSection = document.getElementById("auth-section");
         const userSpan = document.createElement("span");
         userSpan.className = "user";
         userSpan.textContent = item.username;
-        const nameColor = (item.username === currentUser?.username) ? 'var(--accent-1)' : getProfileColor(item);
+        const nameColor = getProfileColor(item);
         userSpan.style.color = nameColor;
 
         userWrap.appendChild(avatar);
