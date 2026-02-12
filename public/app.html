@@ -63,7 +63,7 @@
       </div>
     </div>
     <form id="chat-form">
-      <input type="text" id="chat-input" maxlength="800" placeholder="Type message" required />
+      <input type="text" id="chat-input" maxlength="800" placeholder="Type message" required autocomplete="off" />
       <label class="image-upload">
         <input type="file" id="image-input" />
         <span>File</span>
@@ -76,6 +76,8 @@
     </form>
     <div class="status" id="chat-status"></div>
   </section>
+
+  <div id="mention-autocomplete" class="mention-autocomplete"></div>
 
   <script src="/app.js"></script>
 </body>

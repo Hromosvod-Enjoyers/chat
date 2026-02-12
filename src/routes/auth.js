@@ -15,6 +15,13 @@ const PROFILE_COLORS = [
   "#f2f2f2"
 ];
 
+function isValidUsername(username) {
+  if (!username || typeof username !== "string") return false;
+  const trimmed = username.trim();
+  if (trimmed.length < 1 || trimmed.length > 30) return false;
+  return /^[a-zA-Z0-9._]+$/.test(trimmed);
+}
+
 function createAuthRouter({ db, dbGet, dbRun, getUserFromCookie }) {
   const router = express.Router();
 
@@ -35,6 +42,9 @@ function createAuthRouter({ db, dbGet, dbRun, getUserFromCookie }) {
     const { username, password } = req.body || {};
     if (!username || !password) {
       return res.status(400).json({ error: "Username and password required" });
+    }
+    if (!isValidUsername(username)) {
+      return res.status(400).json({ error: "Username can only contain letters, numbers, dots, and underscores" });
     }
     const hash = bcrypt.hashSync(password, 10);
     try {
@@ -74,6 +84,9 @@ function createAuthRouter({ db, dbGet, dbRun, getUserFromCookie }) {
     if (!username || !password) {
       return res.status(400).json({ error: "Username and password required" });
     }
+    if (!isValidUsername(username)) {
+      return res.status(400).json({ error: "Username can only contain letters, numbers, dots, and underscores" });
+    }
     const user = dbGet(db, "SELECT id, username, password_hash FROM users WHERE username = ?", [
       username.trim()
     ]);
@@ -93,6 +106,9 @@ function createAuthRouter({ db, dbGet, dbRun, getUserFromCookie }) {
     const { username, password } = req.body || {};
     if (!username || !password) {
       return res.status(400).json({ error: "Username and password required" });
+    }
+    if (!isValidUsername(username)) {
+      return res.status(400).json({ error: "Username can only contain letters, numbers, dots, and underscores" });
     }
 
     const existing = dbGet(db, "SELECT id, username, password_hash FROM users WHERE username = ?", [

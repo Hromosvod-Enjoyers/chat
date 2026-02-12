@@ -33,6 +33,8 @@ const authSection = document.getElementById("auth-section");
     let pollTimer = null;
     let lastRenderedCount = 0;
     let lastSeenCount = 0;
+    const userColorMap = new Map(); // Map of username -> profile_color
+    const userDataMap = new Map(); // Map of username -> {color, avatar_mime, avatar_data}
 
     const textEncoder = new TextEncoder();
     const textDecoder = new TextDecoder();
@@ -318,6 +320,17 @@ const authSection = document.getElementById("auth-section");
 
     const canDelete = currentUser && item.username === currentUser.username;
     const avatarUrl = getAvatarUrl(item);
+    const userColor = getProfileColor(item);
+    
+    // Store user color and data for mention coloring and autocomplete
+    if (item.username && userColor) {
+        userColorMap.set(item.username, userColor);
+        userDataMap.set(item.username, {
+            color: userColor,
+            avatar_mime: item.avatar_mime,
+            avatar_data: item.avatar_data
+        });
+    }
 
     const userZone = document.createElement("div");
     userZone.className = "userzone";
@@ -333,7 +346,8 @@ const authSection = document.getElementById("auth-section");
     const userSpan = document.createElement("span");
     userSpan.className = "user";
     userSpan.textContent = item.username || "";
-    userSpan.style.color = getProfileColor(item);
+    const nameColor = (item.username === currentUser?.username) ? 'var(--accent-1)' : userColor;
+    userSpan.style.color = nameColor;
 
     userWrap.appendChild(avatar);
     userWrap.appendChild(userSpan);
@@ -403,6 +417,17 @@ const authSection = document.getElementById("auth-section");
     line.className = "chat-line";
     const canDelete = currentUser && item.username === currentUser.username;
     const avatarUrl = getAvatarUrl(item);
+    const userColor = getProfileColor(item);
+    
+    // Store user color and data for mention coloring and autocomplete
+    if (item.username && userColor) {
+        userColorMap.set(item.username, userColor);
+        userDataMap.set(item.username, {
+            color: userColor,
+            avatar_mime: item.avatar_mime,
+            avatar_data: item.avatar_data
+        });
+    }
 
     const userZone = document.createElement("div");
     userZone.className = "userzone";
@@ -418,7 +443,8 @@ const authSection = document.getElementById("auth-section");
     const userSpan = document.createElement("span");
     userSpan.className = "user";
     userSpan.textContent = item.username || "";
-    userSpan.style.color = getProfileColor(item);
+    const nameColor = (item.username === currentUser?.username) ? 'var(--accent-1)' : userColor;
+    userSpan.style.color = nameColor;
 
     userWrap.appendChild(avatar);
     userWrap.appendChild(userSpan);
@@ -604,7 +630,7 @@ const authSection = document.getElementById("auth-section");
     function renderTextWithMentions(target, text) {
     target.textContent = "";
     if (!text) return;
-    const regex = /@([a-zA-Z0-9_-]+)/g;
+    const regex = /@([a-zA-Z0-9._]+)/g;
     let lastIndex = 0;
     let match;
     while ((match = regex.exec(text)) !== null) {
@@ -613,8 +639,18 @@ const authSection = document.getElementById("auth-section");
         }
         const span = document.createElement("span");
         span.className = "mention";
-        if (currentUser && match[1] === currentUser.username) {
-        span.classList.add("mention-self");
+        const isSelf = currentUser && match[1] === currentUser.username;
+        if (isSelf) {
+            span.classList.add("mention-self");
+        } else {
+            // Color the mention based on the user's profile color
+            const userColor = userColorMap.get(match[1]);
+            if (userColor) {
+                span.classList.add("mention-other");
+                span.style.borderColor = userColor;
+                span.style.backgroundColor = userColor + "22"; // 22 = 13% opacity
+                span.style.color = userColor;
+            }
         }
         span.textContent = `@${match[1]}`;
         target.appendChild(span);
@@ -943,6 +979,17 @@ const authSection = document.getElementById("auth-section");
         line.className = "chat-line";
         const canDelete = currentUser && item.username === currentUser.username;
         const avatarUrl = getAvatarUrl(item);
+        const userColor = getProfileColor(item);
+        
+        // Store user data for mention coloring and autocomplete
+        if (item.username && userColor) {
+            userColorMap.set(item.username, userColor);
+            userDataMap.set(item.username, {
+                color: userColor,
+                avatar_mime: item.avatar_mime,
+                avatar_data: item.avatar_data
+            });
+        }
 
         const userZone = document.createElement("div");
         userZone.className = "userzone";
@@ -958,7 +1005,8 @@ const authSection = document.getElementById("auth-section");
         const userSpan = document.createElement("span");
         userSpan.className = "user";
         userSpan.textContent = item.username;
-        userSpan.style.color = getProfileColor(item);
+        const nameColor = (item.username === currentUser?.username) ? 'var(--accent-1)' : getProfileColor(item);
+        userSpan.style.color = nameColor;
 
         userWrap.appendChild(avatar);
         userWrap.appendChild(userSpan);
@@ -1063,7 +1111,8 @@ const authSection = document.getElementById("auth-section");
         const userSpan = document.createElement("span");
         userSpan.className = "user";
         userSpan.textContent = item.username;
-        userSpan.style.color = getProfileColor(item);
+        const nameColor = (item.username === currentUser?.username) ? 'var(--accent-1)' : getProfileColor(item);
+        userSpan.style.color = nameColor;
 
         userWrap.appendChild(avatar);
         userWrap.appendChild(userSpan);
@@ -1364,6 +1413,10 @@ const authSection = document.getElementById("auth-section");
         setStatus(authStatus, "Checking account...");
         const username = document.getElementById("auth-username").value;
         const password = document.getElementById("auth-password").value;
+        if (username && !/^[a-zA-Z0-9._]+$/.test(username.trim())) {
+            setStatus(authStatus, "Username can only contain letters, numbers, dots, and underscores", true);
+            return;
+        }
         const res = await fetch(`${AUTH_BASE}/enter`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1798,6 +1851,229 @@ const authSection = document.getElementById("auth-section");
         startIdleWatcher();
         startTimeAgoUpdater();
     }
+}
 
-    bootstrap();
+// Mention autocomplete system - declare functions at global scope
+const mentionAutocomplete = document.getElementById("mention-autocomplete");
+const chatInput = document.getElementById("chat-input");
+let mentionStartPos = -1;
+let mentionQuery = "";
+let selectedMentionIndex = -1;
+
+async function getAvailableUsernames() {
+    const usernames = new Set();
+    
+    // First, try to extract from rendered chat-line elements
+    const chatLines = document.querySelectorAll(".chat-line");
+    chatLines.forEach((line) => {
+        const userSpan = line.querySelector("span.user");
+        if (userSpan && userSpan.textContent) {
+            const username = userSpan.textContent.trim();
+            if (username && username !== "SERVER" && username !== "SERVER One-user") {
+                usernames.add(username);
+            }
+        }
+    });
+
+    // If we have usernames from DOM, return them
+    if (usernames.size > 0) {
+        return Array.from(usernames).filter((u) => u && u !== currentUser?.username).sort();
     }
+
+    // Fallback: fetch from database via API
+    if (roomId && masterUnlocked && chatKey) {
+        try {
+            const res = await fetch(`/api/messages?roomId=${encodeURIComponent(roomId)}`);
+            if (res.ok) {
+                const data = await res.json();
+                if (Array.isArray(data.messages)) {
+                    data.messages.forEach((msg) => {
+                        if (msg.username && msg.username !== "SERVER") {
+                            usernames.add(msg.username);
+                        }
+                    });
+                }
+                if (Array.isArray(data.images)) {
+                    data.images.forEach((img) => {
+                        if (img.username && img.username !== "SERVER") {
+                            usernames.add(img.username);
+                        }
+                    });
+                }
+            }
+        } catch (err) {
+            // silently fail and return empty
+        }
+    }
+
+    return Array.from(usernames).filter((u) => u && u !== currentUser?.username).sort();
+}
+
+function hideMentionDropdown() {
+    if (mentionAutocomplete) {
+        mentionAutocomplete.classList.remove("visible");
+        mentionAutocomplete.innerHTML = "";
+        mentionAutocomplete.style.width = "";
+        mentionAutocomplete.style.left = "";
+        mentionAutocomplete.style.bottom = "";
+    }
+    mentionStartPos = -1;
+    mentionQuery = "";
+    selectedMentionIndex = -1;
+}
+
+async function showMentionDropdown(query) {
+    if (!mentionAutocomplete || !chatInput) return;
+    const usernames = await getAvailableUsernames();
+    
+    let filtered;
+    if (query.length === 0) {
+        filtered = usernames;
+    } else {
+        const lowerQuery = query.toLowerCase();
+        const matches = usernames.filter((u) => u.toLowerCase().includes(lowerQuery));
+        const nonMatches = usernames.filter((u) => !u.toLowerCase().includes(lowerQuery));
+        filtered = [...matches, ...nonMatches];
+    }
+
+    if (filtered.length === 0) {
+        hideMentionDropdown();
+        return;
+    }
+
+    // Position the dropdown above the input
+    const rect = chatInput.getBoundingClientRect();
+    mentionAutocomplete.style.width = rect.width + "px";
+    mentionAutocomplete.style.left = rect.left + "px";
+    mentionAutocomplete.style.bottom = (window.innerHeight - rect.top + 8) + "px";
+
+    mentionAutocomplete.innerHTML = "";
+    filtered.forEach((username, index) => {
+        const item = document.createElement("div");
+        item.className = "mention-autocomplete-item";
+        if (index === selectedMentionIndex) {
+            item.classList.add("selected");
+        }
+
+        // Get user data (avatar and color)
+        const userData = userDataMap.get(username);
+        const userColor = userData ? userData.color : PROFILE_COLORS[2];
+        
+        // Create avatar if available
+        if (userData && userData.avatar_mime && userData.avatar_data) {
+            const avatar = document.createElement("img");
+            avatar.className = "avatar";
+            avatar.src = `data:${userData.avatar_mime};base64,${userData.avatar_data}`;
+            avatar.alt = username;
+            avatar.width = 28;
+            avatar.height = 28;
+            item.appendChild(avatar);
+        } else {
+            const avatar = document.createElement("img");
+            avatar.className = "avatar";
+            avatar.src = `https://api.dicebear.com/9.x/rings/svg?size=32&seed=${encodeURIComponent(username)}`;
+            avatar.alt = username;
+            avatar.width = 28;
+            avatar.height = 28;
+            item.appendChild(avatar);
+        }
+
+        const usernameSpan = document.createElement("span");
+        usernameSpan.className = "username";
+        usernameSpan.textContent = username;
+        usernameSpan.style.color = userColor;
+        usernameSpan.style.fontWeight = "700";
+        item.appendChild(usernameSpan);
+
+        item.addEventListener("click", () => {
+            insertMention(username);
+        });
+
+        mentionAutocomplete.appendChild(item);
+    });
+
+    mentionAutocomplete.classList.add("visible");
+}
+
+function insertMention(username) {
+    if (!chatInput || mentionStartPos === -1) return;
+    const before = chatInput.value.substring(0, mentionStartPos);
+    const after = chatInput.value.substring(chatInput.selectionStart);
+    chatInput.value = before + "@" + username + " " + after;
+    const newPos = (before + "@" + username + " ").length;
+    chatInput.setSelectionRange(newPos, newPos);
+    chatInput.focus();
+    hideMentionDropdown();
+}
+
+async function updateMentionDropdown() {
+    if (!chatInput) return;
+    const value = chatInput.value;
+    const cursorPos = chatInput.selectionStart;
+
+    // Find @ before cursor
+    let atPos = -1;
+    for (let i = cursorPos - 1; i >= 0; i--) {
+        if (value[i] === "@") {
+            atPos = i;
+            break;
+        }
+        if (value[i] === " " || value[i] === "\n") break;
+    }
+
+    // Show dropdown if @ found at start or after whitespace
+    if (atPos !== -1 && (atPos === 0 || /\s/.test(value[atPos - 1]))) {
+        const query = value.substring(atPos + 1, cursorPos);
+        if (/^[a-zA-Z0-9._]*$/.test(query)) {
+            mentionStartPos = atPos;
+            mentionQuery = query;
+            selectedMentionIndex = 0;
+            await showMentionDropdown(query);
+            return;
+        }
+    }
+
+    hideMentionDropdown();
+}
+
+// Attach event listeners
+if (chatInput && mentionAutocomplete) {
+    chatInput.addEventListener("input", updateMentionDropdown);
+
+    chatInput.addEventListener("keydown", (e) => {
+        if (!mentionAutocomplete.classList.contains("visible")) return;
+
+        if (e.key === "ArrowDown") {
+            e.preventDefault();
+            const items = mentionAutocomplete.querySelectorAll(".mention-autocomplete-item");
+            if (items.length === 0) return;
+            selectedMentionIndex = (selectedMentionIndex + 1) % items.length;
+            items.forEach((item, i) => item.classList.toggle("selected", i === selectedMentionIndex));
+            items[selectedMentionIndex].scrollIntoView({ block: "nearest" });
+        } else if (e.key === "ArrowUp") {
+            e.preventDefault();
+            const items = mentionAutocomplete.querySelectorAll(".mention-autocomplete-item");
+            if (items.length === 0) return;
+            selectedMentionIndex = (selectedMentionIndex - 1 + items.length) % items.length;
+            items.forEach((item, i) => item.classList.toggle("selected", i === selectedMentionIndex));
+            items[selectedMentionIndex].scrollIntoView({ block: "nearest" });
+        } else if (e.key === "Enter" || e.key === "Tab") {
+            e.preventDefault();
+            const items = mentionAutocomplete.querySelectorAll(".mention-autocomplete-item");
+            if (items[selectedMentionIndex]) {
+                const username = items[selectedMentionIndex].querySelector(".username").textContent;
+                insertMention(username);
+            }
+        } else if (e.key === "Escape") {
+            hideMentionDropdown();
+        }
+    });
+
+    document.addEventListener("click", (e) => {
+        if (!mentionAutocomplete.contains(e.target) && e.target !== chatInput) {
+            hideMentionDropdown();
+        }
+    });
+}
+
+bootstrap();
