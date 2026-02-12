@@ -28,6 +28,9 @@ const authSection = document.getElementById("auth-section");
     let userProfileAvatar = null;
     let userProfileName = null;
     let userProfileDescription = null;
+    let imageModal = null;
+    let imageModalClose = null;
+    let imageModalImg = null;
     let newMessageBanner = null;
     let unreadCount = 0;
     let pollTimer = null;
@@ -156,6 +159,18 @@ const authSection = document.getElementById("auth-section");
     function setVisible(el, visible) {
     if (!el) return;
     el.classList.toggle("hidden", !visible);
+    }
+
+    function openImageModal(src) {
+    if (!imageModal || !imageModalImg || !src) return;
+    imageModalImg.src = src;
+    imageModal.classList.add("show");
+    }
+
+    function closeImageModal() {
+    if (!imageModal) return;
+    imageModal.classList.remove("show");
+    if (imageModalImg) imageModalImg.src = "";
     }
 
     function isAtBottom() {
@@ -422,6 +437,10 @@ const authSection = document.getElementById("auth-section");
         imgEl.loading = "lazy";
         imgEl.src = gifUrl;
         imgEl.alt = "GIF";
+        imgEl.addEventListener("click", (e) => {
+        e.stopPropagation();
+        openImageModal(gifUrl);
+        });
         textDiv.appendChild(imgEl);
     } else {
         renderTextWithMentions(textDiv, item.text || "");
@@ -600,7 +619,10 @@ const authSection = document.getElementById("auth-section");
         imgEl.loading = "lazy";
         imgEl.src = objectUrl;
         imgEl.alt = "Image";
-        imgEl.addEventListener("load", () => URL.revokeObjectURL(objectUrl));
+        imgEl.addEventListener("click", (e) => {
+        e.stopPropagation();
+        openImageModal(objectUrl);
+        });
         messageDiv.appendChild(imgEl);
         } else if (mime.startsWith("video/")) {
         const videoEl = document.createElement("video");
@@ -1175,7 +1197,10 @@ const authSection = document.getElementById("auth-section");
                 imgEl.loading = "lazy";
                 imgEl.src = objectUrl;
                 imgEl.alt = "Image";
-                imgEl.addEventListener("load", () => URL.revokeObjectURL(objectUrl));
+                imgEl.addEventListener("click", (e) => {
+                e.stopPropagation();
+                openImageModal(objectUrl);
+                });
                 messageDiv.appendChild(imgEl);
             } else if (mime.startsWith("video/")) {
                 const videoEl = document.createElement("video");
@@ -1311,6 +1336,10 @@ const authSection = document.getElementById("auth-section");
         imgEl.loading = "lazy";
         imgEl.src = gifUrl;
         imgEl.alt = "GIF";
+        imgEl.addEventListener("click", (e) => {
+        e.stopPropagation();
+        openImageModal(gifUrl);
+        });
         textDiv.appendChild(imgEl);
         } else {
         renderTextWithMentions(textDiv, item.text);
@@ -1798,6 +1827,9 @@ const authSection = document.getElementById("auth-section");
     const bannerPreview = document.getElementById("banner-preview");
     const profileSaveBtn = document.getElementById("profile-save-btn");
     const profileColors = document.getElementById("profile-colors");
+    imageModal = document.getElementById("image-modal");
+    imageModalClose = document.querySelector("#image-modal .modal-close");
+    imageModalImg = document.getElementById("image-modal-img");
     newMessageBanner = document.getElementById("new-message-banner");
     userModal = document.getElementById("user-modal");
     userModalClose = document.querySelector("#user-modal .modal-close");
@@ -1811,6 +1843,13 @@ const authSection = document.getElementById("auth-section");
     let pendingAvatarData = null;
     let pendingAvatarMime = null;
     let pendingProfileColor = "";
+
+    if (imageModalClose && imageModal) {
+        imageModalClose.addEventListener("click", closeImageModal);
+        imageModal.addEventListener("click", (e) => {
+            if (e.target === imageModal) closeImageModal();
+        });
+    }
 
     const renderProfileColors = (selectedColor) => {
         if (!profileColors) return;
