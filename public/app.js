@@ -9,6 +9,7 @@ const authSection = document.getElementById("auth-section");
     const chatLog = document.getElementById("chat-log");
     const page = document.body?.dataset?.page || "";
     const AUTH_BASE = "/api/auth";
+    if ("scrollRestoration" in history) history.scrollRestoration = "manual";
 
     let chatKey = null;
     let currentUser = null;
@@ -183,6 +184,89 @@ const authSection = document.getElementById("auth-section");
         userBanner.textContent = "No banner";
         }
     }
+    }
+
+    async function buildUserMessageLine(item) {
+    if (!item) return null;
+    const line = document.createElement("div");
+    line.className = "chat-line";
+    if (item.id != null) line.setAttribute("data-message-id", String(item.id));
+
+    const canDelete = currentUser && item.username === currentUser.username;
+    const avatarUrl = getAvatarUrl(item);
+
+    const userZone = document.createElement("div");
+    userZone.className = "userzone";
+
+    const userWrap = document.createElement("div");
+    const avatar = document.createElement("img");
+    avatar.className = "avatar";
+    avatar.src = avatarUrl;
+    avatar.alt = item.username || "";
+    avatar.width = 32;
+    avatar.height = 32;
+
+    const userSpan = document.createElement("span");
+    userSpan.className = "user";
+    userSpan.textContent = item.username || "";
+    userSpan.style.color = getProfileColor(item);
+
+    userWrap.appendChild(avatar);
+    userWrap.appendChild(userSpan);
+    userWrap.classList.add("user-clickable");
+    userWrap.addEventListener("click", () => openUserProfile(item));
+    avatar.addEventListener("click", (event) => {
+        event.stopPropagation();
+        openUserProfile(item);
+    });
+    userSpan.addEventListener("click", (event) => {
+        event.stopPropagation();
+        openUserProfile(item);
+    });
+
+    const timeSpan = document.createElement("span");
+    timeSpan.className = "time time-ago";
+    if (item.createdAt) timeSpan.setAttribute("data-created-at", item.createdAt);
+    timeSpan.textContent = item.createdAt ? formatTimeAgoShort(item.createdAt) : "";
+
+    userZone.appendChild(userWrap);
+    userZone.appendChild(timeSpan);
+
+    if (canDelete && item.id != null) {
+        const deleteBtn = document.createElement("button");
+        deleteBtn.className = "delete-btn";
+        deleteBtn.setAttribute("data-id", item.id);
+        deleteBtn.innerHTML = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" fill=\"currentColor\" class=\"bi bi-trash\" viewBox=\"0 0 16 16\"><path d=\"M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z\"/><path d=\"M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z\"/></svg>";
+        userZone.appendChild(deleteBtn);
+    }
+
+    const messageDiv = document.createElement("div");
+    messageDiv.className = "message";
+    const gifUrl = await getGifUrlForMessage(item.text || "");
+    if (gifUrl) {
+        const imgEl = document.createElement("img");
+        imgEl.className = "chat-image";
+        imgEl.loading = "lazy";
+        imgEl.src = gifUrl;
+        imgEl.alt = "GIF";
+        messageDiv.appendChild(imgEl);
+    } else {
+        renderTextWithMentions(messageDiv, item.text || "");
+    }
+
+    line.appendChild(userZone);
+    line.appendChild(messageDiv);
+    return line;
+    }
+
+    async function appendUserMessageLine(item) {
+    if (!chatLog || !item) return null;
+    const line = await buildUserMessageLine(item);
+    if (!line) return null;
+    chatLog.appendChild(line);
+    updateClientMessageTimes();
+    chatLog.scrollTop = chatLog.scrollHeight;
+    return line;
     }
 
     function getGifUrl(text) {
@@ -496,10 +580,18 @@ const authSection = document.getElementById("auth-section");
     async function refreshMessages(options = {}) {
     const { preserveScrollTop = false, scrollTop = 0 } = options;
     if (!masterUnlocked || !chatKey || !chatLog || !currentUser) return;
+    const shouldHideDuringLoad = chatLog.childElementCount === 0;
+    if (shouldHideDuringLoad) chatLog.style.visibility = "hidden";
+    const previousScrollTop = chatLog.scrollTop;
+    const previousScrollHeight = chatLog.scrollHeight;
+    const wasAtBottom = previousScrollHeight - previousScrollTop - chatLog.clientHeight < 48;
     const res = await fetch(`/api/messages?roomId=${encodeURIComponent(roomId)}`);
-    if (!res.ok) return;
+    if (!res.ok) {
+        if (shouldHideDuringLoad) chatLog.style.visibility = "";
+        return;
+    }
     const data = await res.json();
-    chatLog.innerHTML = "";
+    const fragment = document.createDocumentFragment();
     const combined = [];
 
     for (const msg of data.messages) {
@@ -559,7 +651,7 @@ const authSection = document.getElementById("auth-section");
 
     for (const item of combined) {
         if (item.kind === "server") {
-        chatLog.appendChild(createServerMessageLine({ text: item.text, time: item.createdAt }));
+        fragment.appendChild(createServerMessageLine({ text: item.text, time: item.createdAt }));
         continue;
         }
 
@@ -664,7 +756,7 @@ const authSection = document.getElementById("auth-section");
 
         line.appendChild(userZone);
         line.appendChild(messageDiv);
-        chatLog.appendChild(line);
+        fragment.appendChild(line);
         continue;
         }
 
@@ -734,16 +826,33 @@ const authSection = document.getElementById("auth-section");
 
         line.appendChild(userZone);
         line.appendChild(messageDiv);
-        chatLog.appendChild(line);
+        fragment.appendChild(line);
+    }
+
+    chatLog.replaceChildren(fragment);
+    if (shouldHideDuringLoad) {
+        requestAnimationFrame(() => {
+        if (chatLog) chatLog.style.visibility = "";
+        });
     }
 
     updateClientMessageTimes();
 
     if (preserveScrollTop) {
         chatLog.scrollTop = scrollTop;
-    } else {
-        chatLog.scrollTop = chatLog.scrollHeight;
+        return;
     }
+
+    if (wasAtBottom) {
+        chatLog.scrollTop = chatLog.scrollHeight;
+        requestAnimationFrame(() => {
+        if (chatLog) chatLog.scrollTop = chatLog.scrollHeight;
+        });
+        return;
+    }
+
+    const newScrollTop = previousScrollTop + (chatLog.scrollHeight - previousScrollHeight);
+    chatLog.scrollTop = Math.max(0, newScrollTop);
     }
 
     function initSocket() {
@@ -766,6 +875,7 @@ const authSection = document.getElementById("auth-section");
         }
         if (payload.type === "new_message") {
             if (!payload.message || payload.message.room_id !== roomId) return;
+            if (currentUser && payload.message.username === currentUser.username) return;
             await refreshMessages();
         }
         if (payload.type === "new_image") {
@@ -986,26 +1096,46 @@ const authSection = document.getElementById("auth-section");
         if (!message) return;
 
         setStatus(chatStatus, "Sending...");
+        const pendingLine = await appendUserMessageLine({
+        kind: "user",
+        id: null,
+        username: currentUser.username,
+        avatar_mime: currentUser.avatar_mime,
+        avatar_data: currentUser.avatar_data,
+        description: currentUser.description,
+        banner_mime: currentUser.banner_mime,
+        banner_data: currentUser.banner_data,
+        profile_color: currentUser.profile_color,
+        createdAt: new Date().toISOString(),
+        text: message
+        });
         const encrypted = await encryptMessage(message);
         const res = await fetch("/api/messages", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...encrypted, roomId })
         });
+        const payload = await res.json().catch(() => ({}));
         if (!res.ok) {
-        let errorText = "Send failed";
-        try {
-            const data = await res.json();
-            errorText = data.error || errorText;
-        } catch (err) {
-            // ignore
+        if (pendingLine && pendingLine.parentNode) {
+            pendingLine.parentNode.removeChild(pendingLine);
         }
+        const errorText = payload.error || "Send failed";
         setStatus(chatStatus, errorText, true);
         return;
         }
         input.value = "";
         setStatus(chatStatus, "Sent");
-        await refreshMessages();
+        const serverMessage = payload.message || {};
+        const createdAt = serverMessage.created_at || new Date().toISOString();
+        if (pendingLine) {
+        if (serverMessage.id != null) pendingLine.setAttribute("data-message-id", String(serverMessage.id));
+        const timeEl = pendingLine.querySelector(".time.time-ago");
+        if (timeEl) {
+            timeEl.setAttribute("data-created-at", createdAt);
+            timeEl.textContent = formatTimeAgoShort(createdAt);
+        }
+        }
     });
 
     const imageInput = document.getElementById("image-input");
@@ -1282,13 +1412,6 @@ const authSection = document.getElementById("auth-section");
         window.addEventListener("blur", () => {
         stopSocket();
         stopTimeAgoUpdater();
-        if (chatLog) {
-            chatLog.innerHTML = "";
-            const notice = document.createElement("div");
-            notice.className = "chat-line unloaded-message";
-            notice.textContent = "Messages unloaded while window is inactive.";
-            chatLog.appendChild(notice);
-        }
         });
         window.addEventListener("focus", async () => {
         resetIdleTimer();

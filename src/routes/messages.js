@@ -106,7 +106,7 @@ function createMessagesRouter({
         broadcastToRoom(row.room_id, { type: "new_message", message: row });
       }
 
-      res.json({ ok: true });
+      res.json({ ok: true, message: row || null });
     } catch (err) {
       res.status(500).json({ error: "Failed to store message" });
     }
