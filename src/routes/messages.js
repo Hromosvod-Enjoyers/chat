@@ -152,13 +152,18 @@ function createMessagesRouter({
       return res.status(400).json({ error: "File too large" });
     }
 
+    const base64Length = ciphertext.length;
+    const padding = ciphertext.endsWith("==") ? 2 : (ciphertext.endsWith("=") ? 1 : 0);
+    const sizeBytes = Math.max(0, Math.floor((base64Length * 3) / 4) - padding);
+
     try {
-      dbRun(db, "INSERT INTO images (user_id, room_id, iv, ciphertext, mime) VALUES (?, ?, ?, ?, ?)", [
+      dbRun(db, "INSERT INTO images (user_id, room_id, iv, ciphertext, mime, size_bytes) VALUES (?, ?, ?, ?, ?, ?)", [
         user.id,
         roomId,
         iv,
         ciphertext,
-        mime
+        mime,
+        sizeBytes
       ]);
 
       cleanupOldImages(db, roomId);

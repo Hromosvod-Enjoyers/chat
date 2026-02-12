@@ -5,6 +5,8 @@ const initSqlJs = require("sql.js");
 
 const DATA_DIR = path.join(process.cwd(), "data");
 const DB_PATH = path.join(DATA_DIR, "chat.db");
+const LARGE_IMAGE_BYTES = 1024 * 1024;
+const LARGE_IMAGE_KEEP = 30;
 
 if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -113,6 +115,14 @@ function ensureMessageReplyColumns(db) {
   }
 }
 
+function ensureImageSizeColumn(db) {
+  const columns = dbAll(db, "PRAGMA table_info(images)");
+  const hasSize = columns.some((col) => col.name === "size_bytes");
+  if (!hasSize) {
+    dbRun(db, "ALTER TABLE images ADD COLUMN size_bytes INTEGER NOT NULL DEFAULT 0");
+  }
+}
+
 function cleanupOldMessages(db) {
   dbRun(db, "DELETE FROM messages WHERE created_at < datetime('now', '-90 days')");
 }
@@ -124,14 +134,16 @@ function cleanupOldImages(db, roomId) {
     `
       DELETE FROM images
       WHERE room_id = ?
+        AND size_bytes >= ?
         AND id NOT IN (
           SELECT id FROM images
           WHERE room_id = ?
+            AND size_bytes >= ?
           ORDER BY id DESC
-          LIMIT 15
+          LIMIT ${LARGE_IMAGE_KEEP}
         )
     `,
-    [roomId, roomId]
+    [roomId, LARGE_IMAGE_BYTES, roomId, LARGE_IMAGE_BYTES]
   );
 }
 
@@ -183,6 +195,7 @@ async function initDatabase() {
       iv TEXT NOT NULL,
       ciphertext TEXT NOT NULL,
       mime TEXT NOT NULL,
+      size_bytes INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       FOREIGN KEY(user_id) REFERENCES users(id)
     );
@@ -199,6 +212,7 @@ async function initDatabase() {
   ensureUserProfileColumns(db);
   ensureUserColorColumn(db);
   ensureMessageReplyColumns(db);
+  ensureImageSizeColumn(db);
   cleanupOldMessages(db);
 
   saveDb(db);
