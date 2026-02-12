@@ -130,7 +130,7 @@ function createMessagesRouter({
       return res.status(400).json({ error: "ciphertext, iv, roomId, and mime required" });
     }
 
-    if (ciphertext.length > 1000000) {
+    if (ciphertext.length > 25000000) {
       return res.status(400).json({ error: "File too large" });
     }
 

@@ -158,6 +158,26 @@ header .action {
   background: linear-gradient(180deg, rgba(255, 122, 89, 0.9), rgba(69, 214, 255, 0.9));
 }
 
+.new-message {
+  align-self: center;
+  margin-top: -4px;
+  margin-bottom: 6px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: rgba(69, 214, 255, 0.18);
+  border: 1px solid rgba(69, 214, 255, 0.5);
+  color: var(--accent-3);
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: var(--shadow-2);
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.new-message:hover {
+  transform: translateY(-1px);
+  background: rgba(69, 214, 255, 0.28);
+}
+
 .chat-line {
   display: grid;
   grid-template-columns: 1fr;

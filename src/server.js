@@ -24,7 +24,7 @@ async function main() {
   ensureChatSettings(db);
 
   const app = express();
-  app.use(express.json({ limit: "2mb" }));
+  app.use(express.json({ limit: "30mb" }));
   app.use(cookieParser(COOKIE_SECRET));
   app.use(express.static(path.join(process.cwd(), "public")));
 

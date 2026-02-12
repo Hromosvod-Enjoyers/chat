@@ -28,10 +28,15 @@ const authSection = document.getElementById("auth-section");
     let userProfileAvatar = null;
     let userProfileName = null;
     let userProfileDescription = null;
+    let newMessageBanner = null;
+    let unreadCount = 0;
+    let pollTimer = null;
+    let lastRenderedCount = 0;
+    let lastSeenCount = 0;
 
     const textEncoder = new TextEncoder();
     const textDecoder = new TextDecoder();
-    const MAX_IMAGE_BYTES = 700 * 1024;
+    const MAX_IMAGE_BYTES = 15 * 1024 * 1024;
     const MAX_AVATAR_BYTES = 200 * 1024;
     const AVATAR_SIZE = 128;
     const PROFILE_COLORS = [
@@ -151,6 +156,119 @@ const authSection = document.getElementById("auth-section");
     el.classList.toggle("hidden", !visible);
     }
 
+    function isAtBottom() {
+    if (!chatLog) return true;
+    return chatLog.scrollHeight - chatLog.scrollTop - chatLog.clientHeight < 48;
+    }
+
+    function scrollToBottom() {
+    if (!chatLog) return;
+    chatLog.scrollTop = chatLog.scrollHeight;
+    requestAnimationFrame(() => {
+        if (!chatLog) return;
+        chatLog.scrollTop = chatLog.scrollHeight;
+        requestAnimationFrame(() => {
+        if (chatLog) chatLog.scrollTop = chatLog.scrollHeight;
+        });
+    });
+    }
+
+    function updateNewMessageBanner() {
+    if (!newMessageBanner) return;
+    if (unreadCount > 0) {
+        const label = unreadCount === 1 ? "1 new message" : `${unreadCount} new messages`;
+        newMessageBanner.textContent = label;
+        newMessageBanner.classList.remove("hidden");
+        return;
+    }
+    newMessageBanner.classList.add("hidden");
+    }
+
+    function startPolling() {
+    if (pollTimer) return;
+    pollTimer = setInterval(async () => {
+        if (!masterUnlocked || !chatKey || !chatLog || !currentUser) return;
+        const atBottom = isAtBottom();
+        const res = await fetch(`/api/messages?roomId=${encodeURIComponent(roomId)}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const combined = [];
+
+        for (const msg of data.messages || []) {
+        const text = await decryptMessage(msg.ciphertext, msg.iv);
+        combined.push({
+            kind: "user",
+            id: msg.id,
+            username: msg.username,
+            avatar_mime: msg.avatar_mime,
+            avatar_data: msg.avatar_data,
+            description: msg.description,
+            banner_mime: msg.banner_mime,
+            banner_data: msg.banner_data,
+            profile_color: msg.profile_color,
+            createdAt: msg.created_at,
+            text
+        });
+        }
+
+        serverMessages.forEach((entry) => {
+        combined.push({
+            kind: "server",
+            createdAt: entry.time,
+            text: entry.text
+        });
+        });
+
+        if (Array.isArray(data.images)) {
+        data.images.forEach((img) => {
+            combined.push({
+            kind: "image",
+            id: img.id,
+            username: img.username,
+            avatar_mime: img.avatar_mime,
+            avatar_data: img.avatar_data,
+            description: img.description,
+            banner_mime: img.banner_mime,
+            banner_data: img.banner_data,
+            profile_color: img.profile_color,
+            createdAt: img.created_at,
+            iv: img.iv,
+            ciphertext: img.ciphertext,
+            mime: img.mime
+            });
+        });
+        }
+
+        combined.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+
+        if (combined.length < lastRenderedCount) {
+        await refreshMessages({ forceBottom: atBottom });
+        return;
+        }
+
+        if (combined.length <= lastSeenCount) return;
+
+        const newItems = combined.slice(lastRenderedCount);
+        if (!atBottom) {
+        unreadCount += combined.length - lastSeenCount;
+        lastSeenCount = combined.length;
+        updateNewMessageBanner();
+        return;
+        }
+
+        for (const item of newItems) {
+        await appendIncomingItem(item);
+        }
+        lastRenderedCount = combined.length;
+        lastSeenCount = combined.length;
+    }, 3000);
+    }
+
+    function stopPolling() {
+    if (pollTimer) clearInterval(pollTimer);
+    pollTimer = null;
+    }
+
     function getAvatarUrl(user) {
     if (user && user.avatar_mime && user.avatar_data) {
         return `data:${user.avatar_mime};base64,${user.avatar_data}`;
@@ -162,6 +280,12 @@ const authSection = document.getElementById("auth-section");
     function getProfileColor(user) {
     const color = user && user.profile_color ? user.profile_color : "";
     return PROFILE_COLORS.includes(color) ? color : PROFILE_COLORS[2];
+    }
+
+    function describeFileType(file) {
+    const name = file && file.name ? file.name : "unknown";
+    const mime = file && file.type ? file.type : "unknown";
+    return `${name} (${mime})`;
     }
 
     function openUserProfile(user) {
@@ -265,8 +389,164 @@ const authSection = document.getElementById("auth-section");
     if (!line) return null;
     chatLog.appendChild(line);
     updateClientMessageTimes();
-    chatLog.scrollTop = chatLog.scrollHeight;
+    lastRenderedCount += 1;
+    lastSeenCount += 1;
+    unreadCount = 0;
+    updateNewMessageBanner();
+    scrollToBottom();
     return line;
+    }
+
+    async function buildImageLine(item) {
+    if (!item) return null;
+    const line = document.createElement("div");
+    line.className = "chat-line";
+    const canDelete = currentUser && item.username === currentUser.username;
+    const avatarUrl = getAvatarUrl(item);
+
+    const userZone = document.createElement("div");
+    userZone.className = "userzone";
+
+    const userWrap = document.createElement("div");
+    const avatar = document.createElement("img");
+    avatar.className = "avatar";
+    avatar.src = avatarUrl;
+    avatar.alt = item.username || "";
+    avatar.width = 32;
+    avatar.height = 32;
+
+    const userSpan = document.createElement("span");
+    userSpan.className = "user";
+    userSpan.textContent = item.username || "";
+    userSpan.style.color = getProfileColor(item);
+
+    userWrap.appendChild(avatar);
+    userWrap.appendChild(userSpan);
+    userWrap.classList.add("user-clickable");
+    userWrap.addEventListener("click", () => openUserProfile(item));
+    avatar.addEventListener("click", (event) => {
+        event.stopPropagation();
+        openUserProfile(item);
+    });
+    userSpan.addEventListener("click", (event) => {
+        event.stopPropagation();
+        openUserProfile(item);
+    });
+
+    const timeSpan = document.createElement("span");
+    timeSpan.className = "time time-ago";
+    if (item.createdAt) timeSpan.setAttribute("data-created-at", item.createdAt);
+    timeSpan.textContent = item.createdAt ? formatTimeAgoShort(item.createdAt) : "";
+
+    userZone.appendChild(userWrap);
+    userZone.appendChild(timeSpan);
+
+    if (canDelete && item.id != null) {
+        const deleteBtn = document.createElement("button");
+        deleteBtn.className = "delete-btn";
+        deleteBtn.setAttribute("data-image-id", item.id);
+        deleteBtn.textContent = "Delete";
+        userZone.appendChild(deleteBtn);
+    }
+
+    const messageDiv = document.createElement("div");
+    messageDiv.className = "message";
+    const decrypted = await decryptBinary(item.ciphertext, item.iv);
+    if (!decrypted) {
+        messageDiv.textContent = "[Unable to decrypt file]";
+    } else {
+        const blob = new Blob([decrypted], { type: item.mime || "application/octet-stream" });
+        const objectUrl = URL.createObjectURL(blob);
+        const mime = item.mime || "";
+
+        if (mime.startsWith("image/")) {
+        const imgEl = document.createElement("img");
+        imgEl.className = "chat-image";
+        imgEl.loading = "lazy";
+        imgEl.src = objectUrl;
+        imgEl.alt = "Image";
+        imgEl.addEventListener("load", () => URL.revokeObjectURL(objectUrl));
+        messageDiv.appendChild(imgEl);
+        } else if (mime.startsWith("video/")) {
+        const videoEl = document.createElement("video");
+        videoEl.className = "chat-video";
+        videoEl.controls = true;
+        videoEl.src = objectUrl;
+        videoEl.addEventListener("loadedmetadata", () => URL.revokeObjectURL(objectUrl));
+        messageDiv.appendChild(videoEl);
+        } else if (mime.startsWith("audio/")) {
+        const audioEl = document.createElement("audio");
+        audioEl.className = "chat-audio";
+        audioEl.controls = true;
+        audioEl.src = objectUrl;
+        audioEl.addEventListener("loadedmetadata", () => URL.revokeObjectURL(objectUrl));
+        messageDiv.appendChild(audioEl);
+        } else {
+        const fileDiv = document.createElement("div");
+        fileDiv.className = "chat-file";
+        const fileIcon = document.createElement("span");
+        fileIcon.textContent = "📎 ";
+        const downloadLink = document.createElement("a");
+        downloadLink.href = objectUrl;
+        downloadLink.download = "file";
+        const label = mime ? `file (${mime})` : "file (unknown)";
+        downloadLink.textContent = label;
+        downloadLink.className = "file-link";
+        fileDiv.appendChild(fileIcon);
+        fileDiv.appendChild(downloadLink);
+        messageDiv.appendChild(fileDiv);
+        }
+    }
+
+    line.appendChild(userZone);
+    line.appendChild(messageDiv);
+    return line;
+    }
+
+    async function appendIncomingItem(item) {
+    if (!chatLog || !item) return;
+    if (item.kind === "server") {
+        chatLog.appendChild(createServerMessageLine({ text: item.text, time: item.createdAt }));
+        updateClientMessageTimes();
+        scrollToBottom();
+        return;
+    }
+    if (item.kind === "image") {
+        const line = await buildImageLine(item);
+        if (!line) return;
+        chatLog.appendChild(line);
+        updateClientMessageTimes();
+        scrollToBottom();
+        return;
+    }
+    const line = await buildUserMessageLine(item);
+    if (!line) return;
+    chatLog.appendChild(line);
+    updateClientMessageTimes();
+    scrollToBottom();
+    }
+
+    async function appendIncomingMessageFromPayload(message) {
+    if (!chatLog || !message) return;
+    const text = await decryptMessage(message.ciphertext, message.iv);
+    const line = await buildUserMessageLine({
+        kind: "user",
+        id: message.id,
+        username: message.username,
+        avatar_mime: message.avatar_mime,
+        avatar_data: message.avatar_data,
+        description: message.description,
+        banner_mime: message.banner_mime,
+        banner_data: message.banner_data,
+        profile_color: message.profile_color,
+        createdAt: message.created_at,
+        text
+    });
+    if (!line) return;
+    chatLog.appendChild(line);
+    updateClientMessageTimes();
+    lastRenderedCount += 1;
+    scrollToBottom();
     }
 
     function getGifUrl(text) {
@@ -502,7 +782,7 @@ const authSection = document.getElementById("auth-section");
         return;
     }
     if (!file.type || !file.type.startsWith("image/")) {
-        setStatus(chatStatus, "Only image uploads are allowed", true);
+        setStatus(chatStatus, `Unsupported file type: ${describeFileType(file)}`, true);
         return;
     }
     try {
@@ -578,8 +858,9 @@ const authSection = document.getElementById("auth-section");
     }
 
     async function refreshMessages(options = {}) {
-    const { preserveScrollTop = false, scrollTop = 0 } = options;
+    const { preserveScrollTop = false, scrollTop = 0, forceBottom = false } = options;
     if (!masterUnlocked || !chatKey || !chatLog || !currentUser) return;
+    const previousCount = lastSeenCount;
     const shouldHideDuringLoad = chatLog.childElementCount === 0;
     if (shouldHideDuringLoad) chatLog.style.visibility = "hidden";
     const previousScrollTop = chatLog.scrollTop;
@@ -638,6 +919,8 @@ const authSection = document.getElementById("auth-section");
         });
         });
     }
+
+    const newCount = Math.max(0, combined.length - previousCount);
 
     combined.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
 
@@ -746,7 +1029,8 @@ const authSection = document.getElementById("auth-section");
                 const downloadLink = document.createElement("a");
                 downloadLink.href = objectUrl;
                 downloadLink.download = "file";
-                downloadLink.textContent = mime || "Unknown file";
+                const label = mime ? `file (${mime})` : "file (unknown)";
+                downloadLink.textContent = label;
                 downloadLink.className = "file-link";
                 fileDiv.appendChild(fileIcon);
                 fileDiv.appendChild(downloadLink);
@@ -830,6 +1114,8 @@ const authSection = document.getElementById("auth-section");
     }
 
     chatLog.replaceChildren(fragment);
+    lastRenderedCount = combined.length;
+    lastSeenCount = combined.length;
     if (shouldHideDuringLoad) {
         requestAnimationFrame(() => {
         if (chatLog) chatLog.style.visibility = "";
@@ -843,12 +1129,16 @@ const authSection = document.getElementById("auth-section");
         return;
     }
 
-    if (wasAtBottom) {
-        chatLog.scrollTop = chatLog.scrollHeight;
-        requestAnimationFrame(() => {
-        if (chatLog) chatLog.scrollTop = chatLog.scrollHeight;
-        });
+    if (forceBottom || wasAtBottom) {
+        unreadCount = 0;
+        updateNewMessageBanner();
+        scrollToBottom();
         return;
+    }
+
+    if (newCount > 0) {
+        unreadCount += newCount;
+        updateNewMessageBanner();
     }
 
     const newScrollTop = previousScrollTop + (chatLog.scrollHeight - previousScrollHeight);
@@ -863,6 +1153,13 @@ const authSection = document.getElementById("auth-section");
         if (roomId) {
         socket.send(JSON.stringify({ type: "subscribe", roomId }));
         }
+        stopPolling();
+    });
+    socket.addEventListener("error", () => {
+        startPolling();
+    });
+    socket.addEventListener("close", () => {
+        startPolling();
     });
     socket.addEventListener("message", async (event) => {
         if (!masterUnlocked || !chatKey) return;
@@ -870,25 +1167,82 @@ const authSection = document.getElementById("auth-section");
         const payload = JSON.parse(event.data);
         if (payload.type === "info") {
             addServerMessage(payload.message || "");
-            await refreshMessages();
+            const atBottom = isAtBottom();
+            if (atBottom) {
+            await appendIncomingItem({
+                kind: "server",
+                createdAt: new Date().toISOString(),
+                text: payload.message || ""
+            });
+            lastRenderedCount += 1;
+            lastSeenCount += 1;
+            } else {
+            unreadCount += 1;
+            lastSeenCount += 1;
+            updateNewMessageBanner();
+            }
             return;
         }
         if (payload.type === "new_message") {
             if (!payload.message || payload.message.room_id !== roomId) return;
             if (currentUser && payload.message.username === currentUser.username) return;
-            await refreshMessages();
+            const atBottom = isAtBottom();
+            if (atBottom) {
+            const text = await decryptMessage(payload.message.ciphertext, payload.message.iv);
+            await appendIncomingItem({
+                kind: "user",
+                id: payload.message.id,
+                username: payload.message.username,
+                avatar_mime: payload.message.avatar_mime,
+                avatar_data: payload.message.avatar_data,
+                description: payload.message.description,
+                banner_mime: payload.message.banner_mime,
+                banner_data: payload.message.banner_data,
+                profile_color: payload.message.profile_color,
+                createdAt: payload.message.created_at,
+                text
+            });
+            lastRenderedCount += 1;
+            lastSeenCount += 1;
+            } else {
+            unreadCount += 1;
+            lastSeenCount += 1;
+            updateNewMessageBanner();
+            }
+            return;
         }
         if (payload.type === "new_image") {
             if (!payload.image || payload.image.room_id !== roomId) return;
-            await refreshMessages();
+            const atBottom = isAtBottom();
+            if (atBottom) {
+            await appendIncomingItem({
+                kind: "image",
+                id: payload.image.id,
+                username: payload.image.username,
+                avatar_mime: payload.image.avatar_mime,
+                avatar_data: payload.image.avatar_data,
+                description: payload.image.description,
+                banner_mime: payload.image.banner_mime,
+                banner_data: payload.image.banner_data,
+                profile_color: payload.image.profile_color,
+                createdAt: payload.image.created_at,
+                iv: payload.image.iv,
+                ciphertext: payload.image.ciphertext,
+                mime: payload.image.mime
+            });
+            lastRenderedCount += 1;
+            lastSeenCount += 1;
+            } else {
+            unreadCount += 1;
+            lastSeenCount += 1;
+            updateNewMessageBanner();
+            }
+            return;
         }
-        if (payload.type === "delete_image") {
+        if (payload.type === "delete_image" || payload.type === "delete_message") {
             const previousScrollTop = chatLog ? chatLog.scrollTop : 0;
             await refreshMessages({ preserveScrollTop: true, scrollTop: previousScrollTop });
-        }
-        if (payload.type === "delete_message") {
-            const previousScrollTop = chatLog ? chatLog.scrollTop : 0;
-            await refreshMessages({ preserveScrollTop: true, scrollTop: previousScrollTop });
+            return;
         }
         } catch (err) {
         // ignore
@@ -934,7 +1288,7 @@ const authSection = document.getElementById("auth-section");
     setVisible(chatSection, page === "app" && Boolean(currentUser));
 
     if (currentUser && currentUserEl) {
-        currentUserImg.src = getAvatarUrl(currentUser);
+        if (currentUserImg) currentUserImg.src = getAvatarUrl(currentUser);
         currentUserEl.textContent = `${currentUser.username}`;
         currentUserEl.style.color = getProfileColor(currentUser);
         setVisible(logoutBtn, true);
@@ -954,7 +1308,7 @@ const authSection = document.getElementById("auth-section");
         }
         if (page === "app") {
             if (currentUser) {
-            await refreshMessages();
+            await refreshMessages({ forceBottom: true });
             initSocket();
             startIdleWatcher();
             } else {
@@ -1033,7 +1387,7 @@ const authSection = document.getElementById("auth-section");
         }
         if (page === "app") {
         setVisible(chatSection, true);
-        await refreshMessages();
+        await refreshMessages({ forceBottom: true });
         initSocket();
         startIdleWatcher();
         }
@@ -1048,6 +1402,7 @@ const authSection = document.getElementById("auth-section");
         roomId = "";
         // key stored in localStorage (s1); do not clear
         stopSocket();
+        stopPolling();
         stopIdleWatcher();
         serverMessages = [];
         if (page === "app") {
@@ -1155,7 +1510,7 @@ const authSection = document.getElementById("auth-section");
         try {
         setStatus(chatStatus, "Preparing file...");
         let buffer, mime;
-        if (file.type && file.type.startsWith("image/") && file.type !== "image/gif") {
+        if (file.type && file.type.startsWith("image/") && file.type !== "image/gif" && file.type !== "image/svg+xml") {
             const result = await stripImageMetadata(file);
             buffer = result.buffer;
             mime = result.mime;
@@ -1164,7 +1519,7 @@ const authSection = document.getElementById("auth-section");
             mime = file.type || "application/octet-stream";
         }
         if (buffer.byteLength > MAX_IMAGE_BYTES) {
-            setStatus(chatStatus, "File too large (max 700KB)", true);
+            setStatus(chatStatus, "File too large (max 15MB)", true);
             return;
         }
         setStatus(chatStatus, "Encrypting file...");
@@ -1203,6 +1558,7 @@ const authSection = document.getElementById("auth-section");
     const bannerPreview = document.getElementById("banner-preview");
     const profileSaveBtn = document.getElementById("profile-save-btn");
     const profileColors = document.getElementById("profile-colors");
+    newMessageBanner = document.getElementById("new-message-banner");
     userModal = document.getElementById("user-modal");
     userModalClose = document.querySelector("#user-modal .modal-close");
     userBanner = document.getElementById("user-banner");
@@ -1285,7 +1641,7 @@ const authSection = document.getElementById("auth-section");
             bannerInput.value = "";
             if (!file) return;
             if (!file.type || !file.type.startsWith("image/")) {
-                setStatus(chatStatus, "Only image uploads are allowed", true);
+                setStatus(chatStatus, `Unsupported file type: ${describeFileType(file)}`, true);
                 return;
             }
             try {
@@ -1405,6 +1761,23 @@ const authSection = document.getElementById("auth-section");
         await refreshMessages({ preserveScrollTop: true, scrollTop: previousScrollTop });
     });
 
+    if (chatLog) {
+    chatLog.addEventListener("scroll", () => {
+        if (isAtBottom()) {
+        unreadCount = 0;
+        updateNewMessageBanner();
+        }
+    });
+    }
+
+    if (newMessageBanner) {
+    newMessageBanner.addEventListener("click", () => {
+        unreadCount = 0;
+        updateNewMessageBanner();
+        refreshMessages({ forceBottom: true });
+    });
+    }
+
     if (page === "app") {
         ["mousemove", "keydown", "scroll", "click", "touchstart"].forEach((evt) => {
         window.addEventListener(evt, resetIdleTimer, { passive: true });
@@ -1417,8 +1790,9 @@ const authSection = document.getElementById("auth-section");
         resetIdleTimer();
         if (currentUser && masterUnlocked) {
             initSocket();
-            await refreshMessages();
+            await refreshMessages({ forceBottom: true });
             startTimeAgoUpdater();
+            if (!socket) startPolling();
         }
         });
         startIdleWatcher();
