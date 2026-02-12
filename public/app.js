@@ -1790,6 +1790,9 @@ const authSection = document.getElementById("auth-section");
     const profileModal = document.getElementById("profile-modal");
     const profileModalClose = document.querySelector("#profile-modal .modal-close");
     const profileDescription = document.getElementById("profile-description");
+    const profileAvatarInput = document.getElementById("profile-avatar-input");
+    const profileAvatarBtn = document.getElementById("profile-avatar-btn");
+    const profileAvatarPreview = document.getElementById("profile-avatar-preview");
     const bannerInput = document.getElementById("banner-input");
     const bannerUploadBtn = document.getElementById("banner-upload-btn");
     const bannerPreview = document.getElementById("banner-preview");
@@ -1805,6 +1808,8 @@ const authSection = document.getElementById("auth-section");
 
     let pendingBannerData = null;
     let pendingBannerMime = null;
+    let pendingAvatarData = null;
+    let pendingAvatarMime = null;
     let pendingProfileColor = "";
 
     const renderProfileColors = (selectedColor) => {
@@ -1831,6 +1836,7 @@ const authSection = document.getElementById("auth-section");
             if (profileDescription) profileDescription.value = currentUser.description || "";
             pendingProfileColor = getProfileColor(currentUser);
             renderProfileColors(pendingProfileColor);
+            if (profileAvatarPreview) profileAvatarPreview.src = getAvatarUrl(currentUser);
             if (bannerPreview) {
                 if (currentUser.banner_mime && currentUser.banner_data) {
                     bannerPreview.style.backgroundImage = `url(data:${currentUser.banner_mime};base64,${currentUser.banner_data})`;
@@ -1844,6 +1850,8 @@ const authSection = document.getElementById("auth-section");
             }
             pendingBannerData = null;
             pendingBannerMime = null;
+            pendingAvatarData = null;
+            pendingAvatarMime = null;
         }
     };
 
@@ -1870,6 +1878,37 @@ const authSection = document.getElementById("auth-section");
 
     if (bannerUploadBtn && bannerInput) {
         bannerUploadBtn.addEventListener("click", () => bannerInput.click());
+    }
+
+    if (profileAvatarBtn && profileAvatarInput) {
+        profileAvatarBtn.addEventListener("click", () => profileAvatarInput.click());
+    }
+
+    if (profileAvatarInput) {
+        profileAvatarInput.addEventListener("change", async () => {
+            const file = profileAvatarInput.files && profileAvatarInput.files[0];
+            profileAvatarInput.value = "";
+            if (!file) return;
+            if (!file.type || !file.type.startsWith("image/")) {
+                setStatus(chatStatus, `Unsupported file type: ${describeFileType(file)}`, true);
+                return;
+            }
+            try {
+                const { buffer, mime } = await prepareAvatarImage(file);
+                if (buffer.byteLength > MAX_AVATAR_BYTES) {
+                    setStatus(chatStatus, "Avatar too large (max 200KB)", true);
+                    return;
+                }
+                pendingAvatarData = arrayBufferToBase64(buffer);
+                pendingAvatarMime = mime;
+                if (profileAvatarPreview) {
+                    profileAvatarPreview.src = `data:${mime};base64,${pendingAvatarData}`;
+                }
+                setStatus(chatStatus, "Avatar ready to save");
+            } catch (err) {
+                setStatus(chatStatus, "Avatar upload failed", true);
+            }
+        });
     }
 
     if (bannerInput) {
@@ -1910,6 +1949,10 @@ const authSection = document.getElementById("auth-section");
                 updates.bannerMime = pendingBannerMime;
                 updates.bannerData = pendingBannerData;
             }
+            if (pendingAvatarData !== null && pendingAvatarMime !== null) {
+                updates.avatarMime = pendingAvatarMime;
+                updates.avatarData = pendingAvatarData;
+            }
             if (pendingProfileColor) {
                 updates.color = pendingProfileColor;
             }
@@ -1933,6 +1976,12 @@ const authSection = document.getElementById("auth-section");
             if (pendingBannerData) {
                 currentUser.banner_mime = pendingBannerMime;
                 currentUser.banner_data = pendingBannerData;
+            }
+            if (pendingAvatarData) {
+                currentUser.avatar_mime = pendingAvatarMime;
+                currentUser.avatar_data = pendingAvatarData;
+                if (currentUserImg) currentUserImg.src = getAvatarUrl(currentUser);
+                if (userProfileAvatar) userProfileAvatar.src = getAvatarUrl(currentUser);
             }
             if (pendingProfileColor) {
                 currentUser.profile_color = pendingProfileColor;

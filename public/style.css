@@ -661,6 +661,26 @@ button.bt2n {
   box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.15);
 }
 
+.avatar-upload-zone {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+#profile-avatar-input {
+  display: none;
+}
+
+#profile-avatar-preview {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  background: rgba(18, 18, 38, 0.95);
+}
+
 .banner-upload-zone {
   display: flex;
   flex-direction: column;
