@@ -159,9 +159,17 @@ function bindAuthHandlers() {
         return;
       }
       state.currentUser = null;
+      stopSocket();
+      stopPolling();
+      stopIdleWatcher();
+      stopTimeAgoUpdater(state);
       clearCurrentUserUI();
       setStatus(dom.authStatus, "Username released");
       state.serverMessages = [];
+      if (dom.page === "app") {
+        location.replace("/login.html");
+        return;
+      }
     });
   }
 
